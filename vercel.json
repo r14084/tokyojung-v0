@@ -5,27 +5,27 @@
       "src": "apps/customer-pwa/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "buildCommand": "cd apps/customer-pwa && npm install && npm run build",
-        "outputDirectory": "apps/customer-pwa/dist"
+        "buildCommand": "npm install && npm run build",
+        "outputDirectory": "dist"
       }
     },
     {
-      "src": "apps/staff-dashboard/package.json", 
-      "use": "@vercel/static-build",
+      "src": "apps/staff-dashboard/package.json",
+      "use": "@vercel/static-build", 
       "config": {
-        "buildCommand": "cd apps/staff-dashboard && npm install && npm run build",
-        "outputDirectory": "apps/staff-dashboard/dist"
+        "buildCommand": "npm install && npm run build",
+        "outputDirectory": "dist"
       }
-    },
-    {
-      "src": "apps/api-server/dist/index.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "apps/api-server/dist/index.js"
+      "src": "/staff/(.*)",
+      "dest": "apps/staff-dashboard/dist/$1"
+    },
+    {
+      "src": "/staff",
+      "dest": "apps/staff-dashboard/dist/index.html"
     },
     {
       "src": "/(.*)",

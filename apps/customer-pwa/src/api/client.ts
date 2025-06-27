@@ -38,16 +38,70 @@ export interface Order {
   totalAmount?: number
 }
 
+// Mock Data
+const mockMenuItems: MenuItem[] = [
+  {
+    id: 1,
+    name: "ขนมครกไส้หมู",
+    nameEn: "Pork Kanom Krok",
+    description: "ขนมครกไส้หมูสับ เสิร์ฟร้อนๆ หอมหวล",
+    price: 45,
+    category: 'KANOM',
+    available: true
+  },
+  {
+    id: 2,
+    name: "ขนมครกไส้กุ้ง",
+    nameEn: "Shrimp Kanom Krok", 
+    description: "ขนมครกไส้กุ้งสด รสชาติเข้มข้น",
+    price: 50,
+    category: 'KANOM',
+    available: true
+  },
+  {
+    id: 3,
+    name: "ขนมครกไส้หอยแครง",
+    nameEn: "Cockle Kanom Krok",
+    description: "ขนมครกไส้หอยแครงสด หอมกรุ่น",
+    price: 48,
+    category: 'KANOM',
+    available: true
+  },
+  {
+    id: 4,
+    name: "น้ำเปล่า",
+    nameEn: "Water",
+    description: "น้ำดื่มเย็นๆ",
+    price: 15,
+    category: 'DRINK',
+    available: true
+  },
+  {
+    id: 5,
+    name: "โค้ก",
+    nameEn: "Coke",
+    description: "โคคาโคล่าเย็นๆ",
+    price: 25,
+    category: 'DRINK',
+    available: true
+  }
+]
+
 // API Functions
 export const menuApi = {
   getAll: async (): Promise<MenuItem[]> => {
     try {
-      // Use tRPC endpoint which is working
+      console.log('Fetching menu from API:', API_URL)
+      // Try API first, fallback to mock data
       const response = await api.get('/api/trpc/menu.getAll?batch=1&input=%7B%7D')
-      return response.data?.[0]?.result?.data || []
+      const apiData = response.data?.[0]?.result?.data || []
+      if (apiData.length > 0) {
+        return apiData
+      }
+      throw new Error('No API data')
     } catch (error) {
-      console.error('Menu API error:', error)
-      return []
+      console.error('Menu API error, using mock data:', error)
+      return mockMenuItems
     }
   }
 }
