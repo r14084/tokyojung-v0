@@ -344,3 +344,55 @@ export const reportsApi = {
     }
   }
 }
+
+export const userApi = {
+  getProfile: async () => {
+    try {
+      const response = await api.get('/api/trpc/user.getProfile?batch=1&input=%7B%7D')
+      return response.data?.[0]?.result?.data
+    } catch (error) {
+      console.error('Get profile error:', error)
+      throw error
+    }
+  },
+
+  updateProfile: async (profileData: { name?: string; email?: string }) => {
+    try {
+      const response = await api.post('/api/trpc/user.updateProfile', profileData)
+      
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Profile update failed')
+      } else {
+        throw new Error('Unexpected response format')
+      }
+    } catch (error: any) {
+      console.error('Update profile error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      throw error
+    }
+  },
+
+  changePassword: async (passwordData: { currentPassword: string; newPassword: string }) => {
+    try {
+      const response = await api.post('/api/trpc/user.changePassword', passwordData)
+      
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Password change failed')
+      } else {
+        throw new Error('Unexpected response format')
+      }
+    } catch (error: any) {
+      console.error('Change password error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      throw error
+    }
+  }
+}

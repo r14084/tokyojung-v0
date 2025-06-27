@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw, Power, PowerOff, Clock, CheckCircle, XCircle, CreditCard, Plus, Upload, Save, X, Edit, Trash2, Download, Calendar, TrendingUp, PieChart } from 'lucide-react'
 import { LoginForm } from './components/LoginForm'
-import { menuApi, orderApi, reportsApi, type MenuItem, type Order, type TodayStats, type ReportData, type DailyReport, type MenuItemReport } from './api/client'
+import { menuApi, orderApi, reportsApi, userApi, type MenuItem, type Order, type TodayStats, type ReportData, type DailyReport, type MenuItemReport } from './api/client'
 import './App.css'
 
 type ViewType = 'dashboard' | 'orders' | 'menu' | 'reports' | 'settings'
@@ -1288,17 +1288,113 @@ function SettingsView({ user }: { user: User | null }) {
     autoRefresh: localStorage.getItem('autoRefresh') !== 'false'
   })
 
+  const [profileData, setProfileData] = useState({
+    name: user?.name || '',
+    email: user?.email || ''
+  })
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [loading, setLoading] = useState(false)
+
   const handleSettingChange = (key: string, value: any) => {
     setUserSettings(prev => ({ ...prev, [key]: value }))
     localStorage.setItem(key, value.toString())
     
     if (key === 'theme') {
       document.documentElement.setAttribute('data-theme', value)
+      // Apply theme immediately
+      applyTheme(value)
+    }
+    
+    if (key === 'language') {
+      // Language change could trigger UI updates
+      alert(value === 'en' ? 'Language changed to English' : 'เปลี่ยนภาษาเป็นไทยแล้ว')
+    }
+  }
+
+  const applyTheme = (theme: string) => {
+    const root = document.documentElement
+    if (theme === 'dark') {
+      root.style.setProperty('--bg-color', '#1a1a1a')
+      root.style.setProperty('--text-color', '#ffffff')
+      root.style.setProperty('--card-bg', '#2d2d2d')
+    } else {
+      root.style.setProperty('--bg-color', '#ffffff')
+      root.style.setProperty('--text-color', '#333333')
+      root.style.setProperty('--card-bg', '#ffffff')
     }
   }
 
   const handlePasswordChange = () => {
-    alert('ฟีเจอร์เปลี่ยนรหัสผ่านจะพัฒนาในเวอร์ชันถัดไป')
+    setShowPasswordModal(true)
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  }
+
+  const handlePasswordSubmit = async () => {
+    if (!passwordData.currentPassword || !passwordData.newPassword) {
+      alert('กรุณากรอกข้อมูลให้ครบถ้วน')
+      return
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('รหัสผ่านใหม่ไม่ตรงกัน')
+      return
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      alert('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร')
+      return
+    }
+
+    try {
+      setLoading(true)
+      await userApi.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      })
+      alert('เปลี่ยนรหัสผ่านสำเร็จ')
+      setShowPasswordModal(false)
+    } catch (error: any) {
+      alert('เกิดข้อผิดพลาด: ' + (error.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleProfileEdit = () => {
+    setShowProfileEdit(true)
+    setProfileData({
+      name: user?.name || '',
+      email: user?.email || ''
+    })
+  }
+
+  const handleProfileSubmit = async () => {
+    if (!profileData.name || !profileData.email) {
+      alert('กรุณากรอกข้อมูลให้ครบถ้วน')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const updatedUser = await userApi.updateProfile(profileData)
+      // Update local storage with new user data
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      alert('อัปเดตข้อมูลสำเร็จ กรุณาเข้าสู่ระบบใหม่เพื่อดูการเปลี่ยนแปลง')
+      setShowProfileEdit(false)
+      window.location.reload()
+    } catch (error: any) {
+      alert('เกิดข้อผิดพลาด: ' + (error.message || 'ไม่สามารถอัปเดตข้อมูลได้'))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleBackup = () => {
@@ -1325,25 +1421,69 @@ function SettingsView({ user }: { user: User | null }) {
         {/* Profile Settings */}
         <div className="settings-section">
           <h3>👤 ข้อมูลผู้ใช้</h3>
-          <div className="setting-item">
-            <label>ชื่อผู้ใช้:</label>
-            <input type="text" value={user?.name || ''} disabled />
-          </div>
-          <div className="setting-item">
-            <label>อีเมล:</label>
-            <input type="email" value={user?.email || ''} disabled />
-          </div>
-          <div className="setting-item">
-            <label>บทบาท:</label>
-            <span className="role-badge">
-              {user?.role === 'ADMIN' && '👑 ผู้ดูแลระบบ'}
-              {user?.role === 'CASHIER' && '💰 แคชเชียร์'}
-              {user?.role === 'KITCHEN' && '👨‍🍳 ครัว'}
-            </span>
-          </div>
-          <button className="btn btn-secondary" onClick={handlePasswordChange}>
-            🔒 เปลี่ยนรหัสผ่าน
-          </button>
+          {!showProfileEdit ? (
+            <>
+              <div className="setting-item">
+                <label>ชื่อผู้ใช้:</label>
+                <span>{user?.name || ''}</span>
+              </div>
+              <div className="setting-item">
+                <label>อีเมล:</label>
+                <span>{user?.email || ''}</span>
+              </div>
+              <div className="setting-item">
+                <label>บทบาท:</label>
+                <span className="role-badge">
+                  {user?.role === 'ADMIN' && '👑 ผู้ดูแลระบบ'}
+                  {user?.role === 'CASHIER' && '💰 แคชเชียร์'}
+                  {user?.role === 'KITCHEN' && '👨‍🍳 ครัว'}
+                </span>
+              </div>
+              <div className="setting-actions">
+                <button className="btn btn-primary" onClick={handleProfileEdit}>
+                  ✏️ แก้ไขข้อมูล
+                </button>
+                <button className="btn btn-secondary" onClick={handlePasswordChange}>
+                  🔒 เปลี่ยนรหัสผ่าน
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="setting-item">
+                <label>ชื่อผู้ใช้:</label>
+                <input 
+                  type="text" 
+                  value={profileData.name}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="setting-item">
+                <label>อีเมล:</label>
+                <input 
+                  type="email" 
+                  value={profileData.email}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+              <div className="setting-actions">
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleProfileSubmit}
+                  disabled={loading}
+                >
+                  {loading ? '💾 กำลังบันทึก...' : '💾 บันทึก'}
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowProfileEdit(false)}
+                  disabled={loading}
+                >
+                  ❌ ยกเลิก
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Display Settings */}
@@ -1425,6 +1565,69 @@ function SettingsView({ user }: { user: User | null }) {
           </div>
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>🔒 เปลี่ยนรหัสผ่าน</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowPasswordModal(false)}
+                disabled={loading}
+              >
+                ❌
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>รหัสผ่านปัจจุบัน:</label>
+                <input 
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
+              <div className="form-group">
+                <label>รหัสผ่านใหม่:</label>
+                <input 
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
+              <div className="form-group">
+                <label>ยืนยันรหัสผ่านใหม่:</label>
+                <input 
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn btn-primary" 
+                onClick={handlePasswordSubmit}
+                disabled={loading}
+              >
+                {loading ? '🔄 กำลังเปลี่ยน...' : '💾 เปลี่ยนรหัสผ่าน'}
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setShowPasswordModal(false)}
+                disabled={loading}
+              >
+                ❌ ยกเลิก
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
