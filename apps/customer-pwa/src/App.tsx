@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MenuView } from './components/MenuView'
 import { CartView } from './components/CartView'
@@ -21,6 +21,35 @@ function AppContent() {
   const [customerName, setCustomerName] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
   const [currentOrder, setCurrentOrder] = useState<any>(null)
+
+  // Debug localStorage functionality
+  useEffect(() => {
+    // Add global functions to window for debugging
+    (window as any).debugLocalStorage = () => {
+      const orders = localStorage.getItem('tokyojung_orders')
+      const menu = localStorage.getItem('tokyojung_menu')
+      console.log('🔍 Debug localStorage:')
+      console.log('📦 Orders:', orders ? JSON.parse(orders) : 'No orders found')
+      console.log('🍽️ Menu:', menu ? JSON.parse(menu) : 'No custom menu found')
+      console.log('🌐 Current URL:', window.location.href)
+      console.log('🏠 Domain:', window.location.hostname)
+      console.log('📍 Path:', window.location.pathname)
+    }
+
+    (window as any).testLocalStorageSharing = () => {
+      const testData = {
+        timestamp: new Date().toISOString(),
+        app: 'customer-pwa',
+        message: 'Test from customer PWA'
+      }
+      localStorage.setItem('test_sharing', JSON.stringify(testData))
+      console.log('✅ Saved test data to localStorage:', testData)
+    }
+
+    console.log('🛠️ Customer PWA Debug Functions Available:')
+    console.log('📍 Call debugLocalStorage() to check current localStorage state')
+    console.log('🧪 Call testLocalStorageSharing() to test cross-app sharing')
+  }, [])
 
   const addToCart = (menuItem: MenuItem, quantity: number = 1, notes?: string) => {
     const existingItem = cart.find(item => item.menuItemId === menuItem.id)

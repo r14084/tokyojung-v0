@@ -262,7 +262,19 @@ export const menuApi = {
       throw new Error('No API data')
     } catch (error) {
       console.error('Menu API error, using mock data:', error)
-      return mockMenuItems
+      
+      // Get menu items from localStorage and combine with mock menu
+      const customMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
+      
+      // Combine custom menu items with mock menu items
+      const allMenuItems = [...customMenuItems, ...mockMenuItems]
+      
+      // Remove duplicates based on ID and sort by creation time
+      const uniqueMenuItems = allMenuItems.filter((item, index, self) => 
+        index === self.findIndex(i => i.id === item.id)
+      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      
+      return uniqueMenuItems
     }
   },
 
@@ -294,11 +306,28 @@ export const menuApi = {
         throw new Error('Unexpected response format')
       }
     } catch (error: any) {
-      console.error('API: Create menu error:', error)
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error.message)
+      console.error('API: Create menu error, using mock creation:', error)
+      
+      // Mock menu creation for demo purposes
+      const newMenuItem = {
+        id: Date.now(),
+        name: menuData.name,
+        nameEn: menuData.nameEn,
+        description: menuData.description,
+        price: menuData.price,
+        category: menuData.category,
+        image: menuData.image,
+        available: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
-      throw error
+      
+      // Save to localStorage
+      const existingMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
+      existingMenuItems.push(newMenuItem)
+      localStorage.setItem('tokyojung_menu', JSON.stringify(existingMenuItems))
+      
+      return newMenuItem
     }
   },
 
@@ -363,16 +392,53 @@ export const orderApi = {
       }
       throw new Error('No API data')
     } catch (error) {
-      console.error('Orders API error, using mock data:', error)
-      return mockOrders
+      console.error('Orders API error, using localStorage and mock data:', error)
+      
+      // Get orders from localStorage (shared with customer PWA) and combine with mock orders
+      const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      console.log('📦 Staff Dashboard: Found', sharedOrders.length, 'orders in localStorage')
+      console.log('📦 localStorage orders:', sharedOrders)
+      
+      // Combine shared orders with mock orders, with shared orders having priority
+      const allOrders = [...sharedOrders, ...mockOrders]
+      
+      // Remove duplicates based on ID and sort by creation time
+      const uniqueOrders = allOrders.filter((order, index, self) => 
+        index === self.findIndex(o => o.id === order.id)
+      ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      
+      console.log('📦 Staff Dashboard: Returning', uniqueOrders.length, 'total orders')
+      return uniqueOrders
     }
   },
 
   updateStatus: async (id: number, status: string, paymentMethod?: string) => {
-    const response = await api.post('/api/trpc/orders.updateStatus', {
-      id, status, paymentMethod
-    })
-    return response.data.result.data
+    try {
+      const response = await api.post('/api/trpc/orders.updateStatus', {
+        id, status, paymentMethod
+      })
+      return response.data.result.data
+    } catch (error) {
+      console.error('Update status API error, updating localStorage:', error)
+      
+      // Update order status in localStorage
+      const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      const updatedOrders = sharedOrders.map((order: any) => {
+        if (order.id === id) {
+          return {
+            ...order,
+            status,
+            paymentMethod: paymentMethod || order.paymentMethod,
+            updatedAt: new Date().toISOString()
+          }
+        }
+        return order
+      })
+      localStorage.setItem('tokyojung_orders', JSON.stringify(updatedOrders))
+      
+      // Find and return the updated order
+      return updatedOrders.find((order: any) => order.id === id)
+    }
   },
 
   getTodayStats: async (): Promise<TodayStats> => {
@@ -480,8 +546,38 @@ export const reportsApi = {
       }
       return false
     } catch (error) {
-      console.error('Export report error:', error)
-      throw error
+      console.error('Export report error, generating mock export:', error)
+      
+      // Generate mock export data
+      const orders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      const allOrders = [...orders, ...mockOrders]
+      
+      if (format === 'csv') {
+        // Generate CSV data
+        const csvHeader = 'Queue Number,Customer Name,Status,Total Amount,Payment Method,Created At,Items\n'
+        const csvRows = allOrders.map(order => {
+          const itemsStr = order.items.map((item: any) => `${item.menuItem.name} x${item.quantity}`).join('; ')
+          return `${order.queueNumber},"${order.customerName}",${order.status},${order.totalAmount},${order.paymentMethod || 'N/A'},"${new Date(order.createdAt).toLocaleString()}","${itemsStr}"`
+        }).join('\n')
+        
+        const csvContent = csvHeader + csvRows
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `tokyojung-report-${period}.csv`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        
+        return true
+      } else {
+        // For PDF, create a simple text representation
+        alert('PDF export ไม่สามารถใช้งานได้ในโหมด Demo โปรดใช้ CSV export แทน')
+        return false
+      }
     }
   }
 }

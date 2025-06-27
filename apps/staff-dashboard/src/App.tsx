@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw, Power, PowerOff, Clock, CheckCircle, XCircle, CreditCard, Plus, Upload, Save, X, Edit, Trash2, Download, Calendar, TrendingUp, PieChart } from 'lucide-react'
 import { LoginForm } from './components/LoginForm'
+import { DebugPanel } from './components/DebugPanel'
 import { menuApi, orderApi, reportsApi, userApi, type MenuItem, type Order, type TodayStats, type ReportData, type DailyReport, type MenuItemReport } from './api/client'
 import './App.css'
 
@@ -21,6 +22,35 @@ function App() {
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
 
+  // Debug localStorage functionality
+  useEffect(() => {
+    // Add global functions to window for debugging
+    (window as any).debugLocalStorage = () => {
+      const orders = localStorage.getItem('tokyojung_orders')
+      const menu = localStorage.getItem('tokyojung_menu')
+      console.log('🔍 Debug localStorage:')
+      console.log('📦 Orders:', orders ? JSON.parse(orders) : 'No orders found')
+      console.log('🍽️ Menu:', menu ? JSON.parse(menu) : 'No custom menu found')
+      console.log('🌐 Current URL:', window.location.href)
+      console.log('🏠 Domain:', window.location.hostname)
+      console.log('📍 Path:', window.location.pathname)
+    }
+
+    (window as any).testLocalStorageSharing = () => {
+      const testData = {
+        timestamp: new Date().toISOString(),
+        app: 'staff-dashboard',
+        message: 'Test from staff dashboard'
+      }
+      localStorage.setItem('test_sharing', JSON.stringify(testData))
+      console.log('✅ Saved test data to localStorage:', testData)
+    }
+
+    console.log('🛠️ Staff Dashboard Debug Functions Available:')
+    console.log('📍 Call debugLocalStorage() to check current localStorage state')
+    console.log('🧪 Call testLocalStorageSharing() to test cross-app sharing')
+  }, [])
+
   useEffect(() => {
     // Check if user is already logged in
     const token = localStorage.getItem('authToken')
@@ -39,15 +69,45 @@ function App() {
     setLoading(false)
   }, [])
 
-  // Fetch pending orders count
+  // Fetch pending orders count and setup real-time updates
   useEffect(() => {
     if (isAuthenticated) {
       fetchPendingOrdersCount()
-      // Update every 30 seconds
-      const interval = setInterval(fetchPendingOrdersCount, 30000)
+      // Update every 5 seconds for better real-time experience
+      const interval = setInterval(fetchPendingOrdersCount, 5000)
       return () => clearInterval(interval)
     }
   }, [isAuthenticated])
+
+  // Listen for localStorage changes from customer PWA
+  useEffect(() => {
+    if (isAuthenticated) {
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'tokyojung_orders') {
+          console.log('📦 Staff: Detected order changes from customer PWA')
+          fetchPendingOrdersCount()
+          // Force refresh orders view if we're on that page
+          if (currentView === 'orders') {
+            window.location.reload()
+          }
+        }
+      }
+
+      // Also poll for changes every 3 seconds as fallback
+      const pollInterval = setInterval(() => {
+        if (currentView === 'orders') {
+          console.log('📦 Staff: Polling for order updates...')
+          fetchPendingOrdersCount()
+        }
+      }, 3000)
+
+      window.addEventListener('storage', handleStorageChange)
+      return () => {
+        window.removeEventListener('storage', handleStorageChange)
+        clearInterval(pollInterval)
+      }
+    }
+  }, [isAuthenticated, currentView])
 
   const fetchPendingOrdersCount = async () => {
     try {
@@ -228,6 +288,9 @@ function App() {
           {currentView === 'settings' && <SettingsView user={user} />}
         </main>
       </div>
+      
+      {/* Debug Panel - only show in development or when needed */}
+      <DebugPanel />
     </div>
   )
 }
@@ -239,6 +302,27 @@ function DashboardView() {
 
   useEffect(() => {
     loadDashboardData()
+    
+    // Add event listener for localStorage changes to update dashboard stats
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'tokyojung_orders' && e.newValue !== e.oldValue) {
+        console.log('📊 Dashboard: New order detected, updating stats')
+        loadDashboardData() // Reload dashboard data when localStorage changes
+      }
+    }
+
+    // Listen for storage events from other tabs/apps
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also refresh dashboard every 30 seconds as fallback
+    const pollInterval = setInterval(() => {
+      loadDashboardData()
+    }, 30000)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(pollInterval)
+    }
   }, [])
 
   const loadDashboardData = async () => {
@@ -388,6 +472,29 @@ function OrdersView() {
 
   useEffect(() => {
     loadOrders()
+    
+    // Add event listener for localStorage changes to detect new orders from customer PWA
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'tokyojung_orders' && e.newValue !== e.oldValue) {
+        console.log('📱 localStorage changed: New order detected from Customer PWA')
+        console.log('📱 Old value:', e.oldValue)
+        console.log('📱 New value:', e.newValue)
+        loadOrders() // Reload orders when localStorage changes
+      }
+    }
+
+    // Listen for storage events from other tabs/apps
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also check for localStorage changes every 5 seconds as fallback
+    const pollInterval = setInterval(() => {
+      loadOrders()
+    }, 5000)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(pollInterval)
+    }
   }, [])
 
   const loadOrders = async () => {
@@ -405,19 +512,61 @@ function OrdersView() {
   const updateOrderStatus = async (orderId: number, newStatus: string, paymentMethod?: string) => {
     try {
       setUpdatingOrder(orderId)
+      console.log('📦 Staff: Updating order status:', { orderId, newStatus, paymentMethod })
+      
       await orderApi.updateStatus(orderId, newStatus, paymentMethod)
       
-      // Update local state
+      // Update local state immediately
       setOrders(prevOrders => 
         prevOrders.map(order => 
           order.id === orderId 
-            ? { ...order, status: newStatus as any, paymentMethod: paymentMethod as any }
+            ? { ...order, status: newStatus as any, paymentMethod: paymentMethod as any, updatedAt: new Date().toISOString() }
             : order
         )
       )
+      
+      // Force reload from localStorage to ensure consistency
+      await loadOrders()
+      
+      console.log('✅ Staff: Order status updated successfully')
     } catch (error) {
-      console.error('Error updating order status:', error)
+      console.error('❌ Staff: Error updating order status:', error)
       alert('เกิดข้อผิดพลาดในการอัปเดตสถานะออเดอร์')
+    } finally {
+      setUpdatingOrder(null)
+    }
+  }
+
+  const handleCancelOrder = async (orderId: number, queueNumber: number) => {
+    const confirmed = window.confirm(
+      `ต้องการยกเลิกออเดอร์คิวที่ ${queueNumber} หรือไม่?\n\nการยกเลิกจะไม่สามารถกู้คืนได้`
+    )
+    
+    if (!confirmed) return
+
+    try {
+      setUpdatingOrder(orderId)
+      console.log('📦 Staff: Cancelling order:', { orderId, queueNumber })
+      
+      await orderApi.updateStatus(orderId, 'CANCELLED')
+      
+      // Update local state immediately
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: 'CANCELLED' as any, updatedAt: new Date().toISOString() }
+            : order
+        )
+      )
+      
+      // Force reload from localStorage to ensure consistency
+      await loadOrders()
+      
+      console.log('✅ Staff: Order cancelled successfully')
+      alert(`ยกเลิกออเดอร์คิวที่ ${queueNumber} สำเร็จ`)
+    } catch (error) {
+      console.error('❌ Staff: Error cancelling order:', error)
+      alert('เกิดข้อผิดพลาดในการยกเลิกออเดอร์')
     } finally {
       setUpdatingOrder(null)
     }
@@ -498,6 +647,13 @@ function OrdersView() {
             <RefreshCw size={16} />
             รีเฟรช
           </button>
+          <button 
+            className="debug-btn" 
+            onClick={() => (window as any).debugLocalStorage()}
+            style={{ marginLeft: '8px', padding: '6px 12px', fontSize: '12px' }}
+          >
+            🔍 Debug
+          </button>
         </div>
       </div>
 
@@ -537,57 +693,74 @@ function OrdersView() {
               </div>
 
               <div className="order-actions">
-                {order.status === 'PENDING_PAYMENT' && (
-                  <>
+                <div className="main-actions">
+                  {order.status === 'PENDING_PAYMENT' && (
+                    <>
+                      <button
+                        className="status-btn paid"
+                        onClick={() => updateOrderStatus(order.id, 'PAID', 'CASH')}
+                        disabled={updatingOrder === order.id}
+                      >
+                        เงินสด
+                      </button>
+                      <button
+                        className="status-btn paid"
+                        onClick={() => updateOrderStatus(order.id, 'PAID', 'CREDIT_CARD')}
+                        disabled={updatingOrder === order.id}
+                      >
+                        บัตร
+                      </button>
+                    </>
+                  )}
+
+                  {order.status === 'PAID' && (
                     <button
-                      className="status-btn paid"
-                      onClick={() => updateOrderStatus(order.id, 'PAID', 'CASH')}
+                      className="status-btn preparing"
+                      onClick={() => updateOrderStatus(order.id, 'PREPARING')}
                       disabled={updatingOrder === order.id}
                     >
-                      เงินสด
+                      เริ่มทำ
                     </button>
+                  )}
+
+                  {order.status === 'PREPARING' && (
                     <button
-                      className="status-btn paid"
-                      onClick={() => updateOrderStatus(order.id, 'PAID', 'CREDIT_CARD')}
+                      className="status-btn ready"
+                      onClick={() => updateOrderStatus(order.id, 'READY')}
                       disabled={updatingOrder === order.id}
                     >
-                      บัตร
+                      พร้อมรับ
                     </button>
-                  </>
-                )}
+                  )}
 
-                {order.status === 'PAID' && (
-                  <button
-                    className="status-btn preparing"
-                    onClick={() => updateOrderStatus(order.id, 'PREPARING')}
-                    disabled={updatingOrder === order.id}
-                  >
-                    เริ่มทำ
-                  </button>
-                )}
+                  {order.status === 'READY' && (
+                    <button
+                      className="status-btn completed"
+                      onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
+                      disabled={updatingOrder === order.id}
+                    >
+                      เสร็จสิ้น
+                    </button>
+                  )}
 
-                {order.status === 'PREPARING' && (
-                  <button
-                    className="status-btn ready"
-                    onClick={() => updateOrderStatus(order.id, 'READY')}
-                    disabled={updatingOrder === order.id}
-                  >
-                    พร้อมรับ
-                  </button>
-                )}
+                  {updatingOrder === order.id && (
+                    <RefreshCw size={16} className="spinning" />
+                  )}
+                </div>
 
-                {order.status === 'READY' && (
-                  <button
-                    className="status-btn completed"
-                    onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                    disabled={updatingOrder === order.id}
-                  >
-                    เสร็จสิ้น
-                  </button>
-                )}
-
-                {updatingOrder === order.id && (
-                  <RefreshCw size={16} className="spinning" />
+                {/* Void/Cancel Button - Show for orders that can be cancelled */}
+                {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+                  <div className="cancel-actions">
+                    <button
+                      className="cancel-btn"
+                      onClick={() => handleCancelOrder(order.id, order.queueNumber)}
+                      disabled={updatingOrder === order.id}
+                      title="ยกเลิกออเดอร์"
+                    >
+                      <XCircle size={16} />
+                      ยกเลิก
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

@@ -101,7 +101,20 @@ export const menuApi = {
       throw new Error('No API data')
     } catch (error) {
       console.error('Menu API error, using mock data:', error)
-      return mockMenuItems
+      
+      // Get menu items from localStorage and combine with mock menu
+      const customMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
+      
+      // Combine custom menu items with mock menu items
+      const allMenuItems = [...customMenuItems, ...mockMenuItems]
+      
+      // Remove duplicates based on ID and sort by creation time
+      const uniqueMenuItems = allMenuItems.filter((item, index, self) => 
+        index === self.findIndex(i => i.id === item.id)
+      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      
+      // Filter only available items for customers
+      return uniqueMenuItems.filter(item => item.available !== false)
     }
   }
 }
@@ -144,12 +157,47 @@ export const orderApi = {
         throw new Error('Unexpected response format')
       }
     } catch (error: any) {
-      console.error('Order creation error:', error)
-      console.error('Error response:', error.response?.data)
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error.message)
+      console.error('Order creation error, using mock order:', error)
+      
+      // Mock order creation for demo purposes
+      const mockOrder = {
+        id: Date.now(),
+        queueNumber: Math.floor(Math.random() * 100) + 1,
+        customerName: order.customerName,
+        status: 'PENDING_PAYMENT',
+        totalAmount: order.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0),
+        notes: order.notes,
+        paymentMethod: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        items: order.items.map(item => {
+          const menuItem = mockMenuItems.find(m => m.id === item.menuItemId)
+          return {
+            id: Date.now() + Math.random(),
+            orderId: Date.now(),
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.quantity * item.unitPrice,
+            notes: item.notes || "",
+            menuItem: menuItem || mockMenuItems[0]
+          }
+        })
       }
-      throw error
+      
+      // Save to localStorage to share with staff dashboard
+      const existingOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      existingOrders.push(mockOrder)
+      localStorage.setItem('tokyojung_orders', JSON.stringify(existingOrders))
+      
+      console.log('🍜 Customer PWA: Saved order to localStorage')
+      console.log('🍜 Order saved:', mockOrder)
+      console.log('🍜 Total orders in localStorage:', existingOrders.length)
+      
+      return {
+        status: 'success',
+        data: mockOrder
+      }
     }
   },
   
