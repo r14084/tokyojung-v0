@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { publicProcedure, router } from '../lib/trpc'
+import { publicProcedure, router, staffProcedure } from '../lib/trpc'
 import { prisma } from '../lib/prisma'
 import { TRPCError } from '@trpc/server'
-import * as csvWriter from 'csv-writer'
+import { createObjectCsvWriter } from 'csv-writer'
 import PDFDocument from 'pdfkit'
 import fs from 'fs'
 import path from 'path'
@@ -39,7 +39,7 @@ export interface ReportData {
 
 export const reportsRouter = router({
   // Get daily reports for the last N days
-  getDailyReports: publicProcedure
+  getDailyReports: staffProcedure
     .input(z.object({
       days: z.number().optional().default(7)
     }))
@@ -106,7 +106,7 @@ export const reportsRouter = router({
     }),
 
   // Get menu item performance reports
-  getMenuItemReports: publicProcedure
+  getMenuItemReports: staffProcedure
     .input(z.object({
       period: z.string().optional().default('7d')
     }))
@@ -185,7 +185,7 @@ export const reportsRouter = router({
     }),
 
   // Get period report summary
-  getPeriodReport: publicProcedure
+  getPeriodReport: staffProcedure
     .input(z.object({
       period: z.string().optional().default('7d')
     }))
@@ -269,7 +269,7 @@ export const reportsRouter = router({
     }),
 
   // Export report in CSV or PDF format
-  exportReport: publicProcedure
+  exportReport: staffProcedure
     .input(z.object({
       period: z.string(),
       format: z.enum(['csv', 'pdf'])
@@ -319,7 +319,7 @@ export const reportsRouter = router({
           const filename = `tokyojung-report-${period}-${Date.now()}.csv`
           const filepath = path.join(tempDir, filename)
 
-          const writer = csvWriter.createObjectCsvWriter({
+          const writer = createObjectCsvWriter({
             path: filepath,
             header: [
               { id: 'orderNumber', title: 'Order Number' },
