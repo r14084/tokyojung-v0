@@ -18,6 +18,8 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   useEffect(() => {
     // Check if user is already logged in
@@ -37,6 +39,28 @@ function App() {
     setLoading(false)
   }, [])
 
+  // Fetch pending orders count
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPendingOrdersCount()
+      // Update every 30 seconds
+      const interval = setInterval(fetchPendingOrdersCount, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [isAuthenticated])
+
+  const fetchPendingOrdersCount = async () => {
+    try {
+      const orders = await orderApi.getAll()
+      const pendingCount = orders.filter(order => 
+        ['PENDING_PAYMENT', 'PAID', 'PREPARING'].includes(order.status)
+      ).length
+      setPendingOrdersCount(pendingCount)
+    } catch (error) {
+      console.error('Error fetching pending orders:', error)
+    }
+  }
+
   const handleLogin = (_token: string, userData: User) => {
     setUser(userData)
     setIsAuthenticated(true)
@@ -48,6 +72,22 @@ function App() {
     setUser(null)
     setIsAuthenticated(false)
     setCurrentView('dashboard')
+    setPendingOrdersCount(0)
+  }
+
+  const handleRefresh = async () => {
+    try {
+      await fetchPendingOrdersCount()
+      // Trigger refresh of current view data
+      window.location.reload()
+    } catch (error) {
+      console.error('Refresh error:', error)
+      alert('เกิดข้อผิดพลาดในการรีเฟรช')
+    }
+  }
+
+  const handleNotificationClick = () => {
+    setShowNotifications(!showNotifications)
   }
 
   if (loading) {
@@ -74,11 +114,34 @@ function App() {
           <h1 className="staff-title">👨‍💼 Tokyojung Staff Dashboard</h1>
           <p className="staff-subtitle">ระบบจัดการร้าน - Staff Management System</p>
           <div className="header-actions">
-            <button className="notification-btn">
-              <Bell size={20} />
-              <span className="badge">3</span>
-            </button>
-            <button className="refresh-btn">
+            <div className="notification-container">
+              <button className="notification-btn" onClick={handleNotificationClick}>
+                <Bell size={20} />
+                {pendingOrdersCount > 0 && (
+                  <span className="badge">{pendingOrdersCount}</span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="notification-header">
+                    <h4>การแจ้งเตือน</h4>
+                  </div>
+                  <div className="notification-content">
+                    {pendingOrdersCount > 0 ? (
+                      <div className="notification-item">
+                        <Package size={16} />
+                        <span>มีออเดอร์ค้างอยู่ {pendingOrdersCount} รายการ</span>
+                      </div>
+                    ) : (
+                      <div className="notification-item">
+                        <span>ไม่มีการแจ้งเตือนใหม่</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="refresh-btn" onClick={handleRefresh}>
               <RefreshCw size={20} />
             </button>
             <button className="logout-btn" onClick={handleLogout}>
@@ -121,7 +184,9 @@ function App() {
                 >
                   <Package size={20} />
                   <span>จัดการออเดอร์</span>
-                  <span className="badge">5</span>
+                  {pendingOrdersCount > 0 && (
+                    <span className="badge">{pendingOrdersCount}</span>
+                  )}
                 </button>
               </li>
               <li>
@@ -160,7 +225,7 @@ function App() {
           {currentView === 'orders' && <OrdersView />}
           {currentView === 'menu' && <MenuView user={user} />}
           {currentView === 'reports' && <ReportsView />}
-          {currentView === 'settings' && <SettingsView />}
+          {currentView === 'settings' && <SettingsView user={user} />}
         </main>
       </div>
     </div>
@@ -1215,11 +1280,151 @@ function ReportsView() {
   )
 }
 
-function SettingsView() {
+function SettingsView({ user }: { user: User | null }) {
+  const [userSettings, setUserSettings] = useState({
+    theme: localStorage.getItem('theme') || 'light',
+    language: localStorage.getItem('language') || 'th',
+    notifications: localStorage.getItem('notifications') !== 'false',
+    autoRefresh: localStorage.getItem('autoRefresh') !== 'false'
+  })
+
+  const handleSettingChange = (key: string, value: any) => {
+    setUserSettings(prev => ({ ...prev, [key]: value }))
+    localStorage.setItem(key, value.toString())
+    
+    if (key === 'theme') {
+      document.documentElement.setAttribute('data-theme', value)
+    }
+  }
+
+  const handlePasswordChange = () => {
+    alert('ฟีเจอร์เปลี่ยนรหัสผ่านจะพัฒนาในเวอร์ชันถัดไป')
+  }
+
+  const handleBackup = () => {
+    alert('ระบบจะสำรองข้อมูลในเร็วๆ นี้')
+  }
+
+  const handleClearCache = () => {
+    if (confirm('ต้องการล้างข้อมูลแคชทั้งหมดใช่หรือไม่?')) {
+      localStorage.clear()
+      sessionStorage.clear()
+      alert('ล้างแคชเรียบร้อย กรุณาเข้าสู่ระบบใหม่')
+      window.location.reload()
+    }
+  }
+
   return (
     <div className="settings-view">
-      <h2>⚙️ ตั้งค่า</h2>
-      <p>ระบบตั้งค่าจะแสดงที่นี่</p>
+      <div className="settings-header">
+        <h2>⚙️ ตั้งค่าระบบ</h2>
+        <p>จัดการการตั้งค่าบัญชีและระบบ</p>
+      </div>
+
+      <div className="settings-content">
+        {/* Profile Settings */}
+        <div className="settings-section">
+          <h3>👤 ข้อมูลผู้ใช้</h3>
+          <div className="setting-item">
+            <label>ชื่อผู้ใช้:</label>
+            <input type="text" value={user?.name || ''} disabled />
+          </div>
+          <div className="setting-item">
+            <label>อีเมล:</label>
+            <input type="email" value={user?.email || ''} disabled />
+          </div>
+          <div className="setting-item">
+            <label>บทบาท:</label>
+            <span className="role-badge">
+              {user?.role === 'ADMIN' && '👑 ผู้ดูแลระบบ'}
+              {user?.role === 'CASHIER' && '💰 แคชเชียร์'}
+              {user?.role === 'KITCHEN' && '👨‍🍳 ครัว'}
+            </span>
+          </div>
+          <button className="btn btn-secondary" onClick={handlePasswordChange}>
+            🔒 เปลี่ยนรหัสผ่าน
+          </button>
+        </div>
+
+        {/* Display Settings */}
+        <div className="settings-section">
+          <h3>🎨 การแสดงผล</h3>
+          <div className="setting-item">
+            <label>ธีม:</label>
+            <select 
+              value={userSettings.theme}
+              onChange={(e) => handleSettingChange('theme', e.target.value)}
+            >
+              <option value="light">🌞 สว่าง</option>
+              <option value="dark">🌙 มืด</option>
+              <option value="auto">🔄 อัตโนมัติ</option>
+            </select>
+          </div>
+          <div className="setting-item">
+            <label>ภาษา:</label>
+            <select 
+              value={userSettings.language}
+              onChange={(e) => handleSettingChange('language', e.target.value)}
+            >
+              <option value="th">🇹🇭 ไทย</option>
+              <option value="en">🇺🇸 English</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Notification Settings */}
+        <div className="settings-section">
+          <h3>🔔 การแจ้งเตือน</h3>
+          <div className="setting-item">
+            <label>เปิดการแจ้งเตือน:</label>
+            <input 
+              type="checkbox" 
+              checked={userSettings.notifications}
+              onChange={(e) => handleSettingChange('notifications', e.target.checked)}
+            />
+          </div>
+          <div className="setting-item">
+            <label>รีเฟรชอัตโนมัติ:</label>
+            <input 
+              type="checkbox" 
+              checked={userSettings.autoRefresh}
+              onChange={(e) => handleSettingChange('autoRefresh', e.target.checked)}
+            />
+          </div>
+        </div>
+
+        {/* System Settings */}
+        {user?.role === 'ADMIN' && (
+          <div className="settings-section">
+            <h3>🛠️ ระบบ</h3>
+            <div className="setting-actions">
+              <button className="btn btn-primary" onClick={handleBackup}>
+                💾 สำรองข้อมูล
+              </button>
+              <button className="btn btn-warning" onClick={handleClearCache}>
+                🗑️ ล้างแคช
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* App Info */}
+        <div className="settings-section">
+          <h3>ℹ️ ข้อมูลแอป</h3>
+          <div className="setting-item">
+            <label>เวอร์ชัน:</label>
+            <span>v1.0.0</span>
+          </div>
+          <div className="setting-item">
+            <label>สถานะ API:</label>
+            <span className="status-online">🟢 ออนไลน์</span>
+          </div>
+          <div className="setting-item">
+            <label>อัปเดตล่าสุด:</label>
+            <span>{new Date().toLocaleDateString('th-TH')}</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
