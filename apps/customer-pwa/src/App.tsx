@@ -35,7 +35,7 @@ function AppContent() {
       setCart([...cart, {
         menuItemId: menuItem.id,
         quantity,
-        unitPrice: menuItem.price,
+        unitPrice: Number(menuItem.price),
         notes,
         menuItem
       }])

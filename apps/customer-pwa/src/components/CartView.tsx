@@ -79,7 +79,7 @@ export function CartView({ cart, onUpdateItem, onProceedToConfirm, onBackToMenu,
       <div className="cart-summary">
         <div className="total-row">
           <span className="total-label">ยอดรวม</span>
-          <span className="total-amount">฿{totalAmount.toFixed(0)}</span>
+          <span className="total-amount">฿{Number(totalAmount).toFixed(0)}</span>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export function CartView({ cart, onUpdateItem, onProceedToConfirm, onBackToMenu,
           onClick={handleProceed}
           disabled={!customerName.trim()}
         >
-          ดำเนินการต่อ (฿{totalAmount.toFixed(0)})
+          ดำเนินการต่อ (฿{Number(totalAmount).toFixed(0)})
         </button>
       </div>
     </div>
@@ -142,7 +142,7 @@ function CartItemRow({ item, onUpdateQuantity }: CartItemRowProps) {
     onUpdateQuantity(0)
   }
 
-  const itemTotal = item.quantity * item.unitPrice
+  const itemTotal = item.quantity * Number(item.unitPrice)
 
   return (
     <div className="cart-item-row">
@@ -155,7 +155,7 @@ function CartItemRow({ item, onUpdateQuantity }: CartItemRowProps) {
           {item.menuItem.nameEn && (
             <p className="item-name-en">{item.menuItem.nameEn}</p>
           )}
-          <p className="item-price">฿{item.unitPrice.toFixed(0)} x {item.quantity}</p>
+          <p className="item-price">฿{Number(item.unitPrice).toFixed(0)} x {item.quantity}</p>
         </div>
       </div>
 
@@ -186,7 +186,7 @@ function CartItemRow({ item, onUpdateQuantity }: CartItemRowProps) {
       </div>
 
       <div className="item-total">
-        ฿{itemTotal.toFixed(0)}
+        ฿{Number(itemTotal).toFixed(0)}
       </div>
     </div>
   )

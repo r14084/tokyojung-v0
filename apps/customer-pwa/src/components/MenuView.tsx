@@ -136,7 +136,7 @@ function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
         )}
         
         <div className="item-footer">
-          <span className="item-price">฿{item.price.toFixed(0)}</span>
+          <span className="item-price">฿{Number(item.price).toFixed(0)}</span>
           <button 
             className="add-button"
             onClick={handleAddToCart}

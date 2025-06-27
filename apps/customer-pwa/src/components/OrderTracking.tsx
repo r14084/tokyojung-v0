@@ -121,7 +121,7 @@ export function OrderTracking({ order, onStartNewOrder }: OrderTrackingProps) {
         <h3>รายละเอียดออเดอร์</h3>
         <div className="order-info">
           <p><strong>ลูกค้า:</strong> {order.customerName}</p>
-          <p><strong>ยอดรวม:</strong> ฿{order.totalAmount.toFixed(0)}</p>
+          <p><strong>ยอดรวม:</strong> ฿{Number(order.totalAmount).toFixed(0)}</p>
           <p><strong>เลขที่ออเดอร์:</strong> #{order.id}</p>
         </div>
       </div>

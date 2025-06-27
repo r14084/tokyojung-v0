@@ -99,7 +99,7 @@ export function OrderConfirm({ cart, customerName, orderNotes, totalAmount, onCo
                 </div>
                 <div className="item-quantity-price">
                   <span className="quantity">x{item.quantity}</span>
-                  <span className="price">฿{(item.quantity * item.unitPrice).toFixed(0)}</span>
+                  <span className="price">฿{(item.quantity * Number(item.unitPrice)).toFixed(0)}</span>
                 </div>
               </div>
             ))}
@@ -109,7 +109,7 @@ export function OrderConfirm({ cart, customerName, orderNotes, totalAmount, onCo
         <div className="total-section">
           <div className="total-row">
             <span className="total-label">ยอดรวมทั้งสิ้น</span>
-            <span className="total-amount">฿{totalAmount.toFixed(0)}</span>
+            <span className="total-amount">฿{Number(totalAmount).toFixed(0)}</span>
           </div>
         </div>
 
