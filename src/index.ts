@@ -1,25 +1,40 @@
 import express from 'express'
 import cors from 'cors'
-import { PrismaClient } from '@prisma/client'
+import { createServer } from 'http'
+import { Server as SocketIOServer } from 'socket.io'
+import * as trpcExpress from '@trpc/server/adapters/express'
+import { createContext } from './lib/context'
+import { appRouter } from './routers'
+import { prisma } from './lib/prisma'
+import dotenv from 'dotenv'
+
+dotenv.config()
 
 const app = express()
+const server = createServer(app)
 
-// Initialize Prisma with error handling
-let prisma: PrismaClient
-try {
-  prisma = new PrismaClient()
-  console.log('✅ Prisma client initialized')
-} catch (error) {
-  console.error('❌ Failed to initialize Prisma:', error)
-  // Don't exit in production, just log the error
-}
+// Socket.IO setup
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'https://order.tokyojung.com',
+      'https://staff.tokyojung.com'
+    ],
+    methods: ['GET', 'POST']
+  }
+})
 
 // CORS configuration
 const corsOptions = {
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
-    'http://localhost:5174'
+    'http://localhost:5174',
+    'https://order.tokyojung.com',
+    'https://staff.tokyojung.com'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -29,23 +44,20 @@ const corsOptions = {
 app.use(cors(corsOptions))
 app.use(express.json())
 
-// Health check endpoint (no database required)
+// Health check endpoint
 app.get('/', (req, res) => {
-  try {
-    res.json({ 
-      status: 'ok', 
-      message: 'Tokyojung API Server',
-      timestamp: new Date().toISOString(),
-      env: process.env.NODE_ENV || 'development'
-    })
-  } catch (error) {
-    console.error('Health check error:', error)
-    res.status(500).json({ status: 'error', message: 'Server error' })
-  }
+  res.json({ 
+    status: 'ok', 
+    message: '🥞 Tokyojung API Server',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV || 'development'
+  })
 })
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
+    // Test database connection
+    await prisma.user.count()
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
@@ -53,73 +65,70 @@ app.get('/api/health', (req, res) => {
     })
   } catch (error) {
     console.error('Health check error:', error)
-    res.status(500).json({ status: 'error', message: 'Health check failed' })
-  }
-})
-
-// Test database endpoint
-app.get('/api/test-db', async (req, res) => {
-  try {
-    if (!prisma) {
-      return res.status(500).json({
-        status: 'error',
-        message: 'Prisma client not initialized'
-      })
-    }
-    
-    const userCount = await prisma.user.count()
-    const menuItemCount = await prisma.menuItem.count()
-    const orderCount = await prisma.order.count()
-    
-    res.json({
-      status: 'success',
-      message: 'Tokyojung Database connected',
-      data: {
-        users: userCount,
-        menuItems: menuItemCount,
-        orders: orderCount
-      }
-    })
-  } catch (error) {
-    console.error('Database error:', error)
-    res.status(500).json({
-      status: 'error',
+    res.status(500).json({ 
+      status: 'error', 
       message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      timestamp: new Date().toISOString()
     })
   }
 })
 
-// Menu endpoints
+// tRPC middleware
+app.use(
+  '/api/trpc',
+  trpcExpress.createExpressMiddleware({
+    router: appRouter,
+    createContext,
+    onError: ({ error, type, path, input, ctx, req }) => {
+      console.error(`❌ tRPC Error on ${type} ${path}:`, error.message)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Input:', input)
+        console.error('Stack:', error.stack)
+      }
+    }
+  })
+)
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('🔌 Client connected:', socket.id)
+
+  // Join room for real-time updates
+  socket.on('join-staff', () => {
+    socket.join('staff')
+    console.log('👨‍💼 Staff member joined staff room')
+  })
+
+  socket.on('join-customer', (queueNumber) => {
+    socket.join(`customer-${queueNumber}`)
+    console.log(`👤 Customer joined queue ${queueNumber}`)
+  })
+
+  // Handle order status updates
+  socket.on('order-status-updated', (data) => {
+    // Notify staff
+    socket.to('staff').emit('order-updated', data)
+    
+    // Notify specific customer
+    if (data.queueNumber) {
+      socket.to(`customer-${data.queueNumber}`).emit('order-status-changed', data)
+    }
+  })
+
+  // Handle menu availability updates
+  socket.on('menu-availability-updated', (data) => {
+    // Notify all connected clients
+    io.emit('menu-updated', data)
+  })
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Client disconnected:', socket.id)
+  })
+})
+
+// Legacy REST endpoints for backward compatibility
 app.get('/api/menu', async (req, res) => {
   try {
-    if (!prisma) {
-      return res.json({
-        status: 'success',
-        message: 'Mock menu data',
-        data: [
-          {
-            id: 1,
-            name: 'ขนมครกกล้วย',
-            nameEn: 'Banana Kanom Krok',
-            description: 'ขนมครกใส่กล้วย หวานหอม เนื้อนุ่ม',
-            price: 25.00,
-            category: 'KANOM',
-            available: true
-          },
-          {
-            id: 2,
-            name: 'ชาเย็น',
-            nameEn: 'Thai Iced Tea',
-            description: 'ชาเย็นแท้ รสชาติเข้มข้น',
-            price: 20.00,
-            category: 'DRINK',
-            available: true
-          }
-        ]
-      })
-    }
-
     const menuItems = await prisma.menuItem.findMany({
       where: { available: true },
       orderBy: [
@@ -141,17 +150,8 @@ app.get('/api/menu', async (req, res) => {
   }
 })
 
-// Orders endpoints
 app.get('/api/orders', async (req, res) => {
   try {
-    if (!prisma) {
-      return res.json({
-        status: 'success',
-        message: 'Mock orders data',
-        data: []
-      })
-    }
-
     const orders = await prisma.order.findMany({
       include: {
         items: {
@@ -184,169 +184,25 @@ app.get('/api/orders', async (req, res) => {
   }
 })
 
-app.post('/api/orders', async (req, res) => {
-  try {
-    const { customerName, items, notes } = req.body
-
-    if (!prisma) {
-      return res.json({
-        status: 'success',
-        message: 'Mock order created',
-        data: {
-          id: Math.floor(Math.random() * 1000),
-          queueNumber: Math.floor(Math.random() * 100) + 1,
-          customerName: customerName || 'Test Customer',
-          status: 'PENDING_PAYMENT',
-          totalAmount: 45.00,
-          items: items || []
-        }
-      })
-    }
-
-    // Calculate total amount
-    let totalAmount = 0
-    for (const item of items) {
-      const menuItem = await prisma.menuItem.findUnique({
-        where: { id: item.menuItemId }
-      })
-      if (menuItem) {
-        totalAmount += Number(menuItem.price) * item.quantity
-      }
-    }
-
-    // Get next queue number
-    const lastOrder = await prisma.order.findFirst({
-      orderBy: { queueNumber: 'desc' }
-    })
-    const queueNumber = (lastOrder?.queueNumber || 0) + 1
-
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        queueNumber,
-        customerName,
-        totalAmount,
-        notes,
-        items: {
-          create: items.map((item: any) => ({
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.unitPrice * item.quantity,
-            notes: item.notes
-          }))
-        }
-      },
-      include: {
-        items: {
-          include: {
-            menuItem: true
-          }
-        }
-      }
-    })
-
-    res.json({
-      status: 'success',
-      message: 'Order created successfully',
-      data: order
-    })
-  } catch (error) {
-    console.error('Order creation error:', error)
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to create order'
-    })
-  }
-})
-
-// Order status update
-app.patch('/api/orders/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { status } = req.body
-
-    if (!prisma) {
-      return res.json({
-        status: 'success',
-        message: 'Mock status update',
-        data: { id: parseInt(id), status }
-      })
-    }
-
-    const order = await prisma.order.update({
-      where: { id: parseInt(id) },
-      data: { status },
-      include: {
-        items: {
-          include: {
-            menuItem: true
-          }
-        }
-      }
-    })
-
-    res.json({
-      status: 'success',
-      message: 'Order status updated',
-      data: order
-    })
-  } catch (error) {
-    console.error('Status update error:', error)
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to update order status'
-    })
-  }
-})
-
-// Users/Staff endpoints
-app.get('/api/users', async (req, res) => {
-  try {
-    if (!prisma) {
-      return res.json({
-        status: 'success',
-        message: 'Mock users data',
-        data: []
-      })
-    }
-
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true
-      }
-    })
-
-    res.json({
-      status: 'success',
-      data: users
-    })
-  } catch (error) {
-    console.error('Users fetch error:', error)
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to fetch users'
-    })
-  }
-})
-
 // Error handling middleware
 app.use((err: any, req: any, res: any, next: any) => {
-  console.error('Server error:', err)
-  res.status(500).json({ error: 'Internal server error' })
+  console.error('❌ Server error:', err)
+  res.status(500).json({ 
+    error: 'Internal server error',
+    timestamp: new Date().toISOString()
+  })
 })
 
 // For development
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000
-  app.listen(PORT, () => {
-    console.log(`🚀 Server started on port ${PORT}`)
+  server.listen(PORT, () => {
+    console.log(`🚀 Tokyojung API Server started on port ${PORT}`)
+    console.log(`📡 tRPC endpoint: http://localhost:${PORT}/api/trpc`)
+    console.log(`🔌 WebSocket server ready`)
   })
 }
 
 // Export for Vercel
 export default app
+export { server }
