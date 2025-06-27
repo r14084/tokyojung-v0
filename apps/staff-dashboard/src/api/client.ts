@@ -141,14 +141,10 @@ export const menuApi = {
   },
 
   updateAvailability: async (id: number, available: boolean, reason?: string) => {
-    const response = await api.post('/api/trpc/menu.updateAvailability?batch=1', {
-      "0": {
-        json: {
-          id, available, reason
-        }
-      }
+    const response = await api.post('/api/trpc/menu.updateAvailability', {
+      id, available, reason
     })
-    return response.data[0].result.data
+    return response.data.result.data
   },
 
   create: async (menuData: {
@@ -161,17 +157,13 @@ export const menuApi = {
   }) => {
     try {
       console.log('API: Sending create request with data:', menuData)
-      const response = await api.post('/api/trpc/menu.create?batch=1', {
-        "0": {
-          json: menuData
-        }
-      })
+      const response = await api.post('/api/trpc/menu.create', menuData)
       console.log('API: Create response:', response.data)
       
-      if (response.data?.[0]?.result?.data) {
-        return response.data[0].result.data
-      } else if (response.data?.[0]?.error) {
-        throw new Error(response.data[0].error.message || 'Menu creation failed')
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Menu creation failed')
       } else {
         throw new Error('Unexpected response format')
       }
@@ -193,18 +185,14 @@ export const menuApi = {
     image?: string
   }) => {
     try {
-      const response = await api.post('/api/trpc/menu.update?batch=1', {
-        "0": {
-          json: {
-            id, ...menuData
-          }
-        }
+      const response = await api.post('/api/trpc/menu.update', {
+        id, ...menuData
       })
       
-      if (response.data?.[0]?.result?.data) {
-        return response.data[0].result.data
-      } else if (response.data?.[0]?.error) {
-        throw new Error(response.data[0].error.message || 'Menu update failed')
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Menu update failed')
       } else {
         throw new Error('Unexpected response format')
       }
@@ -219,16 +207,12 @@ export const menuApi = {
 
   delete: async (id: number) => {
     try {
-      const response = await api.post('/api/trpc/menu.delete?batch=1', {
-        "0": {
-          json: { id }
-        }
-      })
+      const response = await api.post('/api/trpc/menu.delete', { id })
       
-      if (response.data?.[0]?.result?.data !== undefined) {
-        return response.data[0].result.data
-      } else if (response.data?.[0]?.error) {
-        throw new Error(response.data[0].error.message || 'Menu deletion failed')
+      if (response.data?.result?.data !== undefined) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Menu deletion failed')
       } else {
         throw new Error('Unexpected response format')
       }
@@ -254,14 +238,10 @@ export const orderApi = {
   },
 
   updateStatus: async (id: number, status: string, paymentMethod?: string) => {
-    const response = await api.post('/api/trpc/orders.updateStatus?batch=1', {
-      "0": {
-        json: {
-          id, status, paymentMethod
-        }
-      }
+    const response = await api.post('/api/trpc/orders.updateStatus', {
+      id, status, paymentMethod
     })
-    return response.data[0].result.data
+    return response.data.result.data
   },
 
   getTodayStats: async (): Promise<TodayStats> => {
@@ -320,26 +300,22 @@ export const reportsApi = {
 
   exportReport: async (period: string, format: 'csv' | 'pdf' = 'csv') => {
     try {
-      // Use proper tRPC mutation format for mutations
-      const response = await api.post('/api/trpc/reports.exportReport?batch=1', {
-        "0": {
-          json: {
-            period, format
-          }
-        }
+      // Use simple tRPC mutation format
+      const response = await api.post('/api/trpc/reports.exportReport', {
+        period, format
       })
       
-      if (response.data?.[0]?.result?.data) {
+      if (response.data?.result?.data) {
         let blob: Blob
         
         if (format === 'csv') {
           // For CSV, the data is a string
-          blob = new Blob([response.data[0].result.data], {
+          blob = new Blob([response.data.result.data], {
             type: 'text/csv;charset=utf-8'
           })
         } else {
           // For PDF, the data is base64 encoded
-          const binaryString = atob(response.data[0].result.data)
+          const binaryString = atob(response.data.result.data)
           const bytes = new Uint8Array(binaryString.length)
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i)
