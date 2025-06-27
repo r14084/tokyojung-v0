@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react'
 import { Plus, ShoppingCart } from 'lucide-react'
-import { type MenuItem } from '../api/client'
+import { type MenuItem, menuApi } from '../api/client'
 
 interface MenuViewProps {
   onAddToCart: (menuItem: MenuItem, quantity?: number, notes?: string) => void
@@ -8,48 +9,52 @@ interface MenuViewProps {
 }
 
 export function MenuView({ onAddToCart, onProceedToCart, cartItemsCount }: MenuViewProps) {
-  // Temporary static data for demo (until API is connected)
-  const demoMenuItems: MenuItem[] = [
-    {
-      id: 1,
-      name: 'ขนมครกหวาน',
-      nameEn: 'Sweet Kanom Krok',
-      description: 'ขนมครกแบบดั้งเดิม หวานหอม กรอบนอกนุ่มใน',
-      price: 35,
-      category: 'KANOM',
-      available: true
-    },
-    {
-      id: 2,
-      name: 'ขนมครกเค็ม',
-      nameEn: 'Savory Kanom Krok',
-      description: 'ขนมครกใส่หอมใหญ่และใบโหระพา รสเค็มกำลังดี',
-      price: 40,
-      category: 'KANOM',
-      available: true
-    },
-    {
-      id: 3,
-      name: 'ชาไทย',
-      nameEn: 'Thai Tea',
-      description: 'ชาไทยเข้มข้น หวานมัน เย็นชื่นใจ',
-      price: 25,
-      category: 'DRINK',
-      available: true
-    },
-    {
-      id: 4,
-      name: 'กาแฟโบราณ',
-      nameEn: 'Traditional Coffee',
-      description: 'กาแฟโบราณชงสด หอมกรุ่น รสชาติเข้มข้น',
-      price: 30,
-      category: 'DRINK',
-      available: true
-    }
-  ]
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const kanomItems = demoMenuItems.filter(item => item.category === 'KANOM') || []
-  const drinkItems = demoMenuItems.filter(item => item.category === 'DRINK') || []
+  useEffect(() => {
+    const fetchMenu = async () => {
+      try {
+        setLoading(true)
+        const items = await menuApi.getAll()
+        setMenuItems(items)
+        setError(null)
+      } catch (err) {
+        console.error('Failed to fetch menu:', err)
+        setError('ไม่สามารถโหลดเมนูได้ กรุณาลองใหม่อีกครั้ง')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMenu()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="menu-view">
+        <div className="menu-header">
+          <h2>🍽️ เมนูของเรา</h2>
+          <p>กำลังโหลดเมนู...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="menu-view">
+        <div className="menu-header">
+          <h2>🍽️ เมนูของเรา</h2>
+          <p style={{ color: 'red' }}>{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const kanomItems = menuItems.filter(item => item.category === 'KANOM') || []
+  const drinkItems = menuItems.filter(item => item.category === 'DRINK') || []
 
   return (
     <div className="menu-view">

@@ -41,8 +41,14 @@ export interface Order {
 // API Functions
 export const menuApi = {
   getAll: async (): Promise<MenuItem[]> => {
-    const response = await api.get('/api/menu')
-    return response.data.data || []
+    try {
+      // Use tRPC endpoint which is working
+      const response = await api.get('/api/trpc/menu.getAll?batch=1&input=%7B%7D')
+      return response.data?.[0]?.result?.data || []
+    } catch (error) {
+      console.error('Menu API error:', error)
+      return []
+    }
   }
 }
 
