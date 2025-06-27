@@ -71,6 +71,34 @@ export interface TodayStats {
   pendingOrders: number
 }
 
+export interface ReportData {
+  period: string
+  totalOrders: number
+  totalRevenue: number
+  averageOrderValue: number
+  topItems: Array<{
+    name: string
+    quantity: number
+    revenue: number
+  }>
+}
+
+export interface DailyReport {
+  date: string
+  orders: number
+  revenue: number
+  averageOrderValue: number
+}
+
+export interface MenuItemReport {
+  id: number
+  name: string
+  category: string
+  totalQuantity: number
+  totalRevenue: number
+  orderCount: number
+}
+
 // API Functions
 export const authApi = {
   login: async (email: string, password: string) => {
@@ -223,6 +251,76 @@ export const orderApi = {
     } catch (error) {
       console.error('Stats API error:', error)
       return { todayOrders: 0, todayRevenue: 0, pendingOrders: 0 }
+    }
+  }
+}
+
+export const reportsApi = {
+  getDailyReports: async (days: number = 7): Promise<DailyReport[]> => {
+    try {
+      const response = await api.get(`/api/trpc/reports.getDailyReports?batch=1&input=${encodeURIComponent(JSON.stringify({ days }))}`)
+      return response.data?.[0]?.result?.data || []
+    } catch (error) {
+      console.error('Daily reports API error:', error)
+      return []
+    }
+  },
+
+  getMenuItemReports: async (period: string = '7d'): Promise<MenuItemReport[]> => {
+    try {
+      const response = await api.get(`/api/trpc/reports.getMenuItemReports?batch=1&input=${encodeURIComponent(JSON.stringify({ period }))}`)
+      return response.data?.[0]?.result?.data || []
+    } catch (error) {
+      console.error('Menu item reports API error:', error)
+      return []
+    }
+  },
+
+  getPeriodReport: async (period: string = '7d'): Promise<ReportData> => {
+    try {
+      const response = await api.get(`/api/trpc/reports.getPeriodReport?batch=1&input=${encodeURIComponent(JSON.stringify({ period }))}`)
+      return response.data?.[0]?.result?.data || {
+        period,
+        totalOrders: 0,
+        totalRevenue: 0,
+        averageOrderValue: 0,
+        topItems: []
+      }
+    } catch (error) {
+      console.error('Period report API error:', error)
+      return {
+        period,
+        totalOrders: 0,
+        totalRevenue: 0,
+        averageOrderValue: 0,
+        topItems: []
+      }
+    }
+  },
+
+  exportReport: async (period: string, format: 'csv' | 'pdf' = 'csv') => {
+    try {
+      const response = await api.post('/api/trpc/reports.exportReport', {
+        period, format
+      })
+      
+      if (response.data?.result?.data) {
+        // Create download link
+        const blob = new Blob([response.data.result.data], {
+          type: format === 'csv' ? 'text/csv' : 'application/pdf'
+        })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `tokyojung-report-${period}.${format}`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error('Export report error:', error)
+      throw error
     }
   }
 }

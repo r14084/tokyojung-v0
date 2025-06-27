@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw, Power, PowerOff, Clock, CheckCircle, XCircle, CreditCard, Plus, Upload, Save, X, Edit, Trash2 } from 'lucide-react'
+import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw, Power, PowerOff, Clock, CheckCircle, XCircle, CreditCard, Plus, Upload, Save, X, Edit, Trash2, Download, Calendar, TrendingUp, PieChart } from 'lucide-react'
 import { LoginForm } from './components/LoginForm'
-import { menuApi, orderApi, type MenuItem, type Order, type TodayStats } from './api/client'
+import { menuApi, orderApi, reportsApi, type MenuItem, type Order, type TodayStats, type ReportData, type DailyReport, type MenuItemReport } from './api/client'
 import './App.css'
 
 type ViewType = 'dashboard' | 'orders' | 'menu' | 'reports' | 'settings'
@@ -958,10 +958,231 @@ function MenuView({ user }: { user: User | null }) {
 }
 
 function ReportsView() {
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('7d')
+  const [reportData, setReportData] = useState<ReportData | null>(null)
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([])
+  const [menuItemReports, setMenuItemReports] = useState<MenuItemReport[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'overview' | 'daily' | 'menu'>('overview')
+
+  useEffect(() => {
+    loadReportData()
+  }, [selectedPeriod])
+
+  const loadReportData = async () => {
+    try {
+      setLoading(true)
+      const [periodData, dailyData, menuData] = await Promise.all([
+        reportsApi.getPeriodReport(selectedPeriod),
+        reportsApi.getDailyReports(selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90),
+        reportsApi.getMenuItemReports(selectedPeriod)
+      ])
+      
+      setReportData(periodData)
+      setDailyReports(dailyData)
+      setMenuItemReports(menuData)
+    } catch (error) {
+      console.error('Error loading report data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    try {
+      await reportsApi.exportReport(selectedPeriod, format)
+      alert(`รายงานถูกดาวน์โหลดเป็น ${format.toUpperCase()} แล้ว`)
+    } catch (error) {
+      console.error('Export error:', error)
+      alert('เกิดข้อผิดพลาดในการส่งออกรายงาน')
+    }
+  }
+
+  const getPeriodText = (period: string) => {
+    switch (period) {
+      case '7d': return '7 วันที่ผ่านมา'
+      case '30d': return '30 วันที่ผ่านมา'
+      case '90d': return '90 วันที่ผ่านมา'
+      default: return period
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="reports-view">
+        <h2>📊 รายงาน</h2>
+        <p>กำลังโหลดข้อมูลรายงาน...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="reports-view">
-      <h2>📊 รายงาน</h2>
-      <p>ระบบรายงานจะแสดงที่นี่</p>
+      <div className="reports-header">
+        <h2>📊 รายงาน</h2>
+        <div className="reports-controls">
+          <select 
+            value={selectedPeriod} 
+            onChange={(e) => setSelectedPeriod(e.target.value)}
+            className="period-select"
+          >
+            <option value="7d">7 วันที่ผ่านมา</option>
+            <option value="30d">30 วันที่ผ่านมา</option>
+            <option value="90d">90 วันที่ผ่านมา</option>
+          </select>
+          <button className="export-btn" onClick={() => handleExport('csv')}>
+            <Download size={16} />
+            CSV
+          </button>
+          <button className="export-btn" onClick={() => handleExport('pdf')}>
+            <Download size={16} />
+            PDF
+          </button>
+          <button className="refresh-btn" onClick={loadReportData}>
+            <RefreshCw size={16} />
+            รีเฟรช
+          </button>
+        </div>
+      </div>
+
+      <div className="report-tabs">
+        <button 
+          className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          <BarChart3 size={16} />
+          ภาพรวม
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'daily' ? 'active' : ''}`}
+          onClick={() => setActiveTab('daily')}
+        >
+          <Calendar size={16} />
+          รายวัน
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'menu' ? 'active' : ''}`}
+          onClick={() => setActiveTab('menu')}
+        >
+          <PieChart size={16} />
+          เมนู
+        </button>
+      </div>
+
+      {activeTab === 'overview' && reportData && (
+        <div className="overview-tab">
+          <div className="overview-stats">
+            <div className="stat-card">
+              <div className="stat-icon">📦</div>
+              <div className="stat-content">
+                <h3>ออเดอร์ทั้งหมด</h3>
+                <p className="stat-number">{reportData.totalOrders}</p>
+                <p className="stat-period">{getPeriodText(selectedPeriod)}</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">💰</div>
+              <div className="stat-content">
+                <h3>รายได้รวม</h3>
+                <p className="stat-number">฿{reportData.totalRevenue.toLocaleString()}</p>
+                <p className="stat-period">{getPeriodText(selectedPeriod)}</p>
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-icon">📊</div>
+              <div className="stat-content">
+                <h3>ยอดขายเฉลี่ย</h3>
+                <p className="stat-number">฿{reportData.averageOrderValue.toFixed(2)}</p>
+                <p className="stat-period">ต่อออเดอร์</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="top-items-section">
+            <h3>🌟 เมนูยอดนิยม</h3>
+            <div className="top-items-grid">
+              {reportData.topItems.map((item, index) => (
+                <div key={index} className="top-item-card">
+                  <div className="item-rank">#{index + 1}</div>
+                  <div className="item-details">
+                    <h4>{item.name}</h4>
+                    <p>ขายแล้ว {item.quantity} รายการ</p>
+                    <p className="item-revenue">รายได้ ฿{item.revenue.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'daily' && (
+        <div className="daily-tab">
+          <h3>📈 รายงานรายวัน</h3>
+          <div className="daily-chart-container">
+            <div className="chart-placeholder">
+              <TrendingUp size={48} color="#ccc" />
+              <p>กราฟรายวันจะแสดงที่นี่</p>
+            </div>
+          </div>
+          <div className="daily-table">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>วันที่</th>
+                  <th>ออเดอร์</th>
+                  <th>รายได้</th>
+                  <th>ยอดขายเฉลี่ย</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyReports.map((day, index) => (
+                  <tr key={index}>
+                    <td>{new Date(day.date).toLocaleDateString('th-TH')}</td>
+                    <td>{day.orders}</td>
+                    <td>฿{day.revenue.toLocaleString()}</td>
+                    <td>฿{day.averageOrderValue.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'menu' && (
+        <div className="menu-tab">
+          <h3>🍽️ รายงานเมนู</h3>
+          <div className="menu-table">
+            <table className="report-table">
+              <thead>
+                <tr>
+                  <th>เมนู</th>
+                  <th>ประเภท</th>
+                  <th>จำนวนขาย</th>
+                  <th>จำนวนออเดอร์</th>
+                  <th>รายได้</th>
+                </tr>
+              </thead>
+              <tbody>
+                {menuItemReports.map((item) => (
+                  <tr key={item.id}>
+                    <td className="menu-name">{item.name}</td>
+                    <td>
+                      <span className={`category-badge ${item.category.toLowerCase()}`}>
+                        {item.category === 'KANOM' ? 'ขนมครก' : 'เครื่องดื่ม'}
+                      </span>
+                    </td>
+                    <td>{item.totalQuantity}</td>
+                    <td>{item.orderCount}</td>
+                    <td>฿{item.totalRevenue.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
