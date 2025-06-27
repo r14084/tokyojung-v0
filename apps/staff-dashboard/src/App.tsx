@@ -990,6 +990,9 @@ function ReportsView() {
 
   const handleExport = async (format: 'csv' | 'pdf') => {
     try {
+      console.log('Export attempt:', { period: selectedPeriod, format })
+      console.log('API URL:', import.meta.env.VITE_API_URL)
+      
       const success = await reportsApi.exportReport(selectedPeriod, format)
       if (success) {
         alert(`รายงานถูกดาวน์โหลดเป็น ${format.toUpperCase()} แล้ว`)
@@ -997,10 +1000,19 @@ function ReportsView() {
         alert('ไม่สามารถสร้างไฟล์รายงานได้')
       }
     } catch (error: any) {
-      console.error('Export error:', error)
+      console.error('Export error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        message: error.message
+      })
+      
       let errorMessage = 'เกิดข้อผิดพลาดในการส่งออกรายงาน'
       
-      if (error.response?.data?.error?.message) {
+      if (error.response?.status === 404) {
+        errorMessage = 'ไม่พบ API endpoint - กรุณารอ Vercel deploy'
+      } else if (error.response?.data?.error?.message) {
         errorMessage = `เกิดข้อผิดพลาด: ${error.response.data.error.message}`
       } else if (error.response?.status === 401) {
         errorMessage = 'กรุณาเข้าสู่ระบบใหม่'
