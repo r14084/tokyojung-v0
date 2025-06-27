@@ -86,24 +86,40 @@ function App() {
         if (e.key === 'tokyojung_orders') {
           console.log('📦 Staff: Detected order changes from customer PWA')
           fetchPendingOrdersCount()
-          // Force refresh orders view if we're on that page
+          // Reload orders data if we're on orders page
           if (currentView === 'orders') {
-            window.location.reload()
+            loadOrders()
           }
         }
       }
 
-      // Also poll for changes every 3 seconds as fallback
+      // Listen for postMessage from customer PWA
+      const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return
+        
+        if (event.data.type === 'NEW_ORDER_CREATED') {
+          console.log('📦 Staff: Received new order notification:', event.data)
+          fetchPendingOrdersCount()
+          if (currentView === 'orders') {
+            loadOrders()
+          }
+        }
+      }
+
+      // Poll for changes every 5 seconds as fallback
       const pollInterval = setInterval(() => {
         if (currentView === 'orders') {
           console.log('📦 Staff: Polling for order updates...')
-          fetchPendingOrdersCount()
+          loadOrders()
         }
-      }, 3000)
+      }, 5000)
 
       window.addEventListener('storage', handleStorageChange)
+      window.addEventListener('message', handleMessage)
+      
       return () => {
         window.removeEventListener('storage', handleStorageChange)
+        window.removeEventListener('message', handleMessage)
         clearInterval(pollInterval)
       }
     }
@@ -500,10 +516,16 @@ function OrdersView() {
   const loadOrders = async () => {
     try {
       setLoading(true)
+      console.log('📦 Staff: Loading orders...')
       const orderData = await orderApi.getAll()
+      console.log('📦 Staff: Loaded orders:', orderData.length, 'orders')
       setOrders(orderData)
+      
+      // Debug localStorage content
+      const localStorageOrders = localStorage.getItem('tokyojung_orders')
+      console.log('📦 Staff: localStorage content:', localStorageOrders ? JSON.parse(localStorageOrders) : 'empty')
     } catch (error) {
-      console.error('Error loading orders:', error)
+      console.error('❌ Staff: Error loading orders:', error)
     } finally {
       setLoading(false)
     }
@@ -514,24 +536,36 @@ function OrdersView() {
       setUpdatingOrder(orderId)
       console.log('📦 Staff: Updating order status:', { orderId, newStatus, paymentMethod })
       
-      await orderApi.updateStatus(orderId, newStatus, paymentMethod)
+      const result = await orderApi.updateStatus(orderId, newStatus, paymentMethod)
       
-      // Update local state immediately
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, status: newStatus as any, paymentMethod: paymentMethod as any, updatedAt: new Date().toISOString() }
-            : order
+      if (result) {
+        // Update local state immediately with the returned data
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? { ...order, status: newStatus as any, paymentMethod: paymentMethod as any, updatedAt: new Date().toISOString() }
+              : order
+          )
         )
-      )
-      
-      // Force reload from localStorage to ensure consistency
-      await loadOrders()
-      
-      console.log('✅ Staff: Order status updated successfully')
+        
+        console.log('✅ Staff: Order status updated successfully')
+        
+        // Show success feedback
+        const statusText = newStatus === 'CANCELLED' ? 'ยกเลิก' : 
+                          newStatus === 'PAID' ? 'ชำระแล้ว' :
+                          newStatus === 'PREPARING' ? 'กำลังเตรียม' :
+                          newStatus === 'READY' ? 'พร้อมรับ' :
+                          newStatus === 'COMPLETED' ? 'เสร็จสิ้น' : newStatus
+        
+        // Don't show alert for successful updates to avoid interruption
+        console.log(`✅ อัพเดทสถานะเป็น "${statusText}" สำเร็จ`)
+      }
     } catch (error) {
       console.error('❌ Staff: Error updating order status:', error)
       alert('เกิดข้อผิดพลาดในการอัปเดตสถานะออเดอร์')
+      
+      // Reload orders to ensure data consistency
+      await loadOrders()
     } finally {
       setUpdatingOrder(null)
     }
@@ -548,25 +582,27 @@ function OrdersView() {
       setUpdatingOrder(orderId)
       console.log('📦 Staff: Cancelling order:', { orderId, queueNumber })
       
-      await orderApi.updateStatus(orderId, 'CANCELLED')
+      const result = await orderApi.updateStatus(orderId, 'CANCELLED')
       
-      // Update local state immediately
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.id === orderId 
-            ? { ...order, status: 'CANCELLED' as any, updatedAt: new Date().toISOString() }
-            : order
+      if (result) {
+        // Update local state immediately
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId 
+              ? { ...order, status: 'CANCELLED' as any, updatedAt: new Date().toISOString() }
+              : order
+          )
         )
-      )
-      
-      // Force reload from localStorage to ensure consistency
-      await loadOrders()
-      
-      console.log('✅ Staff: Order cancelled successfully')
-      alert(`ยกเลิกออเดอร์คิวที่ ${queueNumber} สำเร็จ`)
+        
+        console.log('✅ Staff: Order cancelled successfully')
+        alert(`ยกเลิกออเดอร์คิวที่ ${queueNumber} สำเร็จ`)
+      }
     } catch (error) {
       console.error('❌ Staff: Error cancelling order:', error)
       alert('เกิดข้อผิดพลาดในการยกเลิกออเดอร์')
+      
+      // Reload orders to ensure data consistency
+      await loadOrders()
     } finally {
       setUpdatingOrder(null)
     }

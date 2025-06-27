@@ -436,6 +436,36 @@ export const orderApi = {
       })
       localStorage.setItem('tokyojung_orders', JSON.stringify(updatedOrders))
       
+      // Notify customer PWA of the change via postMessage
+      try {
+        // Try to communicate with customer PWA in same domain
+        window.parent.postMessage({
+          type: 'ORDER_STATUS_UPDATED',
+          data: { orderId: id, status, paymentMethod, timestamp: new Date().toISOString() }
+        }, window.location.origin)
+        
+        // Also try iframe communication if exists
+        const customerFrame = window.parent.frames[0]
+        if (customerFrame && customerFrame !== window) {
+          customerFrame.postMessage({
+            type: 'ORDER_STATUS_UPDATED',
+            data: { orderId: id, status, paymentMethod, timestamp: new Date().toISOString() }
+          }, window.location.origin)
+        }
+        
+        console.log('📦 Staff: Sent status update notification to customer PWA')
+      } catch (error) {
+        console.log('📦 Staff: Could not notify customer PWA:', error)
+      }
+      
+      // Trigger storage event manually for same-domain communication
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'tokyojung_orders',
+        newValue: JSON.stringify(updatedOrders),
+        oldValue: JSON.stringify(sharedOrders),
+        url: window.location.href
+      }))
+      
       // Find and return the updated order
       return updatedOrders.find((order: any) => order.id === id)
     }
