@@ -75,17 +75,28 @@ export interface TodayStats {
 export const authApi = {
   login: async (email: string, password: string) => {
     try {
-      const response = await api.post('/api/trpc/auth.login?batch=1', {
-        "0": {
-          json: { email, password }
-        }
+      // Use the correct tRPC format for mutations
+      const response = await api.post('/api/trpc/auth.login', {
+        email,
+        password
       })
-      return response.data[0].result.data
-    } catch (error: any) {
-      if (error.response?.data?.[0]?.error) {
-        throw new Error(error.response.data[0].error.message)
+      
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Login failed')
+      } else {
+        throw new Error('Unexpected response format')
       }
-      throw error
+    } catch (error: any) {
+      console.error('Login error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      if (error.message) {
+        throw error
+      }
+      throw new Error('การเข้าสู่ระบบล้มเหลว กรุณาลองใหม่')
     }
   }
 }
@@ -103,9 +114,87 @@ export const menuApi = {
 
   updateAvailability: async (id: number, available: boolean, reason?: string) => {
     const response = await api.post('/api/trpc/menu.updateAvailability', {
-      json: { id, available, reason }
+      id, available, reason
     })
     return response.data.result.data
+  },
+
+  create: async (menuData: {
+    name: string
+    nameEn?: string
+    description?: string
+    price: number
+    category: 'KANOM' | 'DRINK'
+    image?: string
+  }) => {
+    try {
+      console.log('API: Sending create request with data:', menuData)
+      const response = await api.post('/api/trpc/menu.create', menuData)
+      console.log('API: Create response:', response.data)
+      
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Menu creation failed')
+      } else {
+        throw new Error('Unexpected response format')
+      }
+    } catch (error: any) {
+      console.error('API: Create menu error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      throw error
+    }
+  },
+
+  update: async (id: number, menuData: {
+    name?: string
+    nameEn?: string
+    description?: string
+    price?: number
+    category?: 'KANOM' | 'DRINK'
+    image?: string
+  }) => {
+    try {
+      const response = await api.post('/api/trpc/menu.update', {
+        id, ...menuData
+      })
+      
+      if (response.data?.result?.data) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Menu update failed')
+      } else {
+        throw new Error('Unexpected response format')
+      }
+    } catch (error: any) {
+      console.error('API: Update menu error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      throw error
+    }
+  },
+
+  delete: async (id: number) => {
+    try {
+      const response = await api.post('/api/trpc/menu.delete', { id })
+      
+      if (response.data?.result?.data !== undefined) {
+        return response.data.result.data
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Menu deletion failed')
+      } else {
+        throw new Error('Unexpected response format')
+      }
+    } catch (error: any) {
+      console.error('API: Delete menu error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      throw error
+    }
   }
 }
 
@@ -122,7 +211,7 @@ export const orderApi = {
 
   updateStatus: async (id: number, status: string, paymentMethod?: string) => {
     const response = await api.post('/api/trpc/orders.updateStatus', {
-      json: { id, status, paymentMethod }
+      id, status, paymentMethod
     })
     return response.data.result.data
   },

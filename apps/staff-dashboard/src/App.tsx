@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw } from 'lucide-react'
+import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw, Power, PowerOff, Clock, CheckCircle, XCircle, CreditCard, Plus, Upload, Save, X, Edit, Trash2 } from 'lucide-react'
 import { LoginForm } from './components/LoginForm'
+import { menuApi, orderApi, type MenuItem, type Order, type TodayStats } from './api/client'
 import './App.css'
 
 type ViewType = 'dashboard' | 'orders' | 'menu' | 'reports' | 'settings'
@@ -157,7 +158,7 @@ function App() {
         <main className="staff-main">
           {currentView === 'dashboard' && <DashboardView />}
           {currentView === 'orders' && <OrdersView />}
-          {currentView === 'menu' && <MenuView />}
+          {currentView === 'menu' && <MenuView user={user} />}
           {currentView === 'reports' && <ReportsView />}
           {currentView === 'settings' && <SettingsView />}
         </main>
@@ -167,17 +168,85 @@ function App() {
 }
 
 function DashboardView() {
+  const [stats, setStats] = useState<TodayStats>({ todayOrders: 0, todayRevenue: 0, pendingOrders: 0 })
+  const [recentOrders, setRecentOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true)
+      const [statsData, ordersData] = await Promise.all([
+        orderApi.getTodayStats(),
+        orderApi.getAll()
+      ])
+      
+      setStats(statsData)
+      // Get 5 most recent orders
+      const sorted = ordersData
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5)
+      setRecentOrders(sorted)
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING_PAYMENT': return 'รอชำระเงิน'
+      case 'PAID': return 'ชำระแล้ว'
+      case 'PREPARING': return 'กำลังเตรียม'
+      case 'READY': return 'พร้อมรับ'
+      case 'COMPLETED': return 'เสร็จแล้ว'
+      case 'CANCELLED': return 'ยกเลิก'
+      default: return status
+    }
+  }
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'PENDING_PAYMENT': return 'pending-payment'
+      case 'PAID': return 'paid'
+      case 'PREPARING': return 'preparing'
+      case 'READY': return 'ready'
+      case 'COMPLETED': return 'completed'
+      case 'CANCELLED': return 'cancelled'
+      default: return 'unknown'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="dashboard-view">
+        <h2>📊 แดชบอร์ดภาพรวม</h2>
+        <p>กำลังโหลดข้อมูล...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="dashboard-view">
-      <h2>📊 แดชบอร์ดภาพรวม</h2>
+      <div className="dashboard-header">
+        <h2>📊 แดชบอร์ดภาพรวม</h2>
+        <button className="refresh-dashboard-btn" onClick={loadDashboardData}>
+          <RefreshCw size={16} />
+          รีเฟรช
+        </button>
+      </div>
       
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-icon orders">📦</div>
           <div className="stat-content">
             <h3>ออเดอร์วันนี้</h3>
-            <p className="stat-number">24</p>
-            <p className="stat-change positive">+12% จากเมื่อวาน</p>
+            <p className="stat-number">{stats.todayOrders}</p>
+            <p className="stat-change">ออเดอร์ทั้งหมดวันนี้</p>
           </div>
         </div>
         
@@ -185,8 +254,8 @@ function DashboardView() {
           <div className="stat-icon revenue">💰</div>
           <div className="stat-content">
             <h3>รายได้วันนี้</h3>
-            <p className="stat-number">฿1,840</p>
-            <p className="stat-change positive">+8% จากเมื่อวาน</p>
+            <p className="stat-number">฿{stats.todayRevenue.toLocaleString()}</p>
+            <p className="stat-change">รายได้สะสมวันนี้</p>
           </div>
         </div>
         
@@ -194,73 +263,696 @@ function DashboardView() {
           <div className="stat-icon pending">⏰</div>
           <div className="stat-content">
             <h3>ออเดอร์รอดำเนินการ</h3>
-            <p className="stat-number">5</p>
-            <p className="stat-change">คิวถัดไป: #26</p>
+            <p className="stat-number">{stats.pendingOrders}</p>
+            <p className="stat-change">ต้องดำเนินการ</p>
           </div>
         </div>
         
         <div className="stat-card">
           <div className="stat-icon popular">🌟</div>
           <div className="stat-content">
-            <h3>เมนูยอดนิยม</h3>
-            <p className="stat-number">ขนมครกหวาน</p>
-            <p className="stat-change">ขายแล้ว 8 ใบ</p>
+            <h3>ออเดอร์ล่าสุด</h3>
+            <p className="stat-number">
+              {recentOrders.length > 0 ? `#${recentOrders[0].queueNumber}` : '-'}
+            </p>
+            <p className="stat-change">
+              {recentOrders.length > 0 ? recentOrders[0].customerName : 'ไม่มีออเดอร์'}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="recent-orders">
         <h3>ออเดอร์ล่าสุด</h3>
-        <div className="orders-list">
-          <div className="order-item">
-            <div className="order-info">
-              <span className="order-number">#25</span>
-              <span className="customer-name">คุณสมชาย</span>
-              <span className="order-time">10:30</span>
-            </div>
-            <div className="order-status preparing">กำลังเตรียม</div>
-            <div className="order-total">฿75</div>
+        {recentOrders.length > 0 ? (
+          <div className="orders-list">
+            {recentOrders.map(order => (
+              <div key={order.id} className="order-item">
+                <div className="order-info">
+                  <span className="order-number">#{order.queueNumber}</span>
+                  <span className="customer-name">{order.customerName}</span>
+                  <span className="order-time">
+                    {new Date(order.createdAt).toLocaleTimeString('th-TH', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                </div>
+                <div className={`order-status ${getStatusClass(order.status)}`}>
+                  {getStatusText(order.status)}
+                </div>
+                <div className="order-total">฿{order.totalAmount}</div>
+              </div>
+            ))}
           </div>
-          
-          <div className="order-item">
-            <div className="order-info">
-              <span className="order-number">#24</span>
-              <span className="customer-name">คุณสมหญิง</span>
-              <span className="order-time">10:25</span>
-            </div>
-            <div className="order-status ready">พร้อมรับ</div>
-            <div className="order-total">฿120</div>
+        ) : (
+          <div className="no-recent-orders">
+            <p>ไม่มีออเดอร์ล่าสุด</p>
           </div>
-          
-          <div className="order-item">
-            <div className="order-info">
-              <span className="order-number">#23</span>
-              <span className="customer-name">คุณชาติ</span>
-              <span className="order-time">10:20</span>
-            </div>
-            <div className="order-status completed">เสร็จแล้ว</div>
-            <div className="order-total">฿95</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
 }
 
 function OrdersView() {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [updatingOrder, setUpdatingOrder] = useState<number | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  useEffect(() => {
+    loadOrders()
+  }, [])
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true)
+      const orderData = await orderApi.getAll()
+      setOrders(orderData)
+    } catch (error) {
+      console.error('Error loading orders:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateOrderStatus = async (orderId: number, newStatus: string, paymentMethod?: string) => {
+    try {
+      setUpdatingOrder(orderId)
+      await orderApi.updateStatus(orderId, newStatus, paymentMethod)
+      
+      // Update local state
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: newStatus as any, paymentMethod: paymentMethod as any }
+            : order
+        )
+      )
+    } catch (error) {
+      console.error('Error updating order status:', error)
+      alert('เกิดข้อผิดพลาดในการอัปเดตสถานะออเดอร์')
+    } finally {
+      setUpdatingOrder(null)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'PENDING_PAYMENT': return '#ff9800'
+      case 'PAID': return '#2196f3'
+      case 'PREPARING': return '#ff5722'
+      case 'READY': return '#4caf50'
+      case 'COMPLETED': return '#9e9e9e'
+      case 'CANCELLED': return '#f44336'
+      default: return '#9e9e9e'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'PENDING_PAYMENT': return 'รอชำระเงิน'
+      case 'PAID': return 'ชำระแล้ว'
+      case 'PREPARING': return 'กำลังเตรียม'
+      case 'READY': return 'พร้อมรับ'
+      case 'COMPLETED': return 'เสร็จสิ้น'
+      case 'CANCELLED': return 'ยกเลิก'
+      default: return status
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'PENDING_PAYMENT': return <CreditCard size={16} />
+      case 'PAID': return <CheckCircle size={16} />
+      case 'PREPARING': return <Clock size={16} />
+      case 'READY': return <Bell size={16} />
+      case 'COMPLETED': return <CheckCircle size={16} />
+      case 'CANCELLED': return <XCircle size={16} />
+      default: return <Clock size={16} />
+    }
+  }
+
+  const filteredOrders = statusFilter === 'all' 
+    ? orders 
+    : orders.filter(order => order.status === statusFilter)
+
+  const sortedOrders = filteredOrders.sort((a, b) => {
+    // Sort by creation time (newest first)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+
+  if (loading) {
+    return (
+      <div className="orders-view">
+        <h2>📦 จัดการออเดอร์</h2>
+        <p>กำลังโหลดข้อมูลออเดอร์...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="orders-view">
-      <h2>📦 จัดการออเดอร์</h2>
-      <p>ระบบจัดการออเดอร์จะแสดงที่นี่</p>
+      <div className="orders-header">
+        <h2>📦 จัดการออเดอร์</h2>
+        <div className="orders-actions">
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="status-filter"
+          >
+            <option value="all">ทุกสถานะ</option>
+            <option value="PENDING_PAYMENT">รอชำระเงิน</option>
+            <option value="PAID">ชำระแล้ว</option>
+            <option value="PREPARING">กำลังเตรียม</option>
+            <option value="READY">พร้อมรับ</option>
+            <option value="COMPLETED">เสร็จสิ้น</option>
+          </select>
+          <button className="refresh-orders-btn" onClick={loadOrders}>
+            <RefreshCw size={16} />
+            รีเฟรช
+          </button>
+        </div>
+      </div>
+
+      <div className="orders-grid">
+        {sortedOrders.map(order => (
+          <div key={order.id} className="order-card">
+            <div className="order-header">
+              <div className="order-queue">
+                <span className="queue-number">#{order.queueNumber}</span>
+                <span className="customer-name">{order.customerName}</span>
+              </div>
+              <div 
+                className="order-status-badge"
+                style={{ backgroundColor: getStatusColor(order.status) }}
+              >
+                {getStatusIcon(order.status)}
+                {getStatusText(order.status)}
+              </div>
+            </div>
+
+            <div className="order-items">
+              {order.items.map(item => (
+                <div key={item.id} className="order-item">
+                  <span className="item-name">{item.menuItem.name}</span>
+                  <span className="item-quantity">x{item.quantity}</span>
+                  <span className="item-price">฿{item.totalPrice}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="order-footer">
+              <div className="order-info">
+                <div className="order-total">รวม: ฿{order.totalAmount}</div>
+                <div className="order-time">
+                  {new Date(order.createdAt).toLocaleTimeString('th-TH')}
+                </div>
+              </div>
+
+              <div className="order-actions">
+                {order.status === 'PENDING_PAYMENT' && (
+                  <>
+                    <button
+                      className="status-btn paid"
+                      onClick={() => updateOrderStatus(order.id, 'PAID', 'CASH')}
+                      disabled={updatingOrder === order.id}
+                    >
+                      เงินสด
+                    </button>
+                    <button
+                      className="status-btn paid"
+                      onClick={() => updateOrderStatus(order.id, 'PAID', 'CREDIT_CARD')}
+                      disabled={updatingOrder === order.id}
+                    >
+                      บัตร
+                    </button>
+                  </>
+                )}
+
+                {order.status === 'PAID' && (
+                  <button
+                    className="status-btn preparing"
+                    onClick={() => updateOrderStatus(order.id, 'PREPARING')}
+                    disabled={updatingOrder === order.id}
+                  >
+                    เริ่มทำ
+                  </button>
+                )}
+
+                {order.status === 'PREPARING' && (
+                  <button
+                    className="status-btn ready"
+                    onClick={() => updateOrderStatus(order.id, 'READY')}
+                    disabled={updatingOrder === order.id}
+                  >
+                    พร้อมรับ
+                  </button>
+                )}
+
+                {order.status === 'READY' && (
+                  <button
+                    className="status-btn completed"
+                    onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
+                    disabled={updatingOrder === order.id}
+                  >
+                    เสร็จสิ้น
+                  </button>
+                )}
+
+                {updatingOrder === order.id && (
+                  <RefreshCw size={16} className="spinning" />
+                )}
+              </div>
+            </div>
+
+            {order.notes && (
+              <div className="order-notes">
+                <strong>หมายเหตุ:</strong> {order.notes}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {sortedOrders.length === 0 && (
+        <div className="no-orders">
+          <p>ไม่มีออเดอร์{statusFilter !== 'all' ? 'ในสถานะนี้' : ''}</p>
+        </div>
+      )}
     </div>
   )
 }
 
-function MenuView() {
+function MenuView({ user }: { user: User | null }) {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [updatingItem, setUpdatingItem] = useState<number | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    nameEn: '',
+    description: '',
+    price: '',
+    category: 'KANOM' as 'KANOM' | 'DRINK',
+    image: ''
+  })
+
+  useEffect(() => {
+    loadMenuItems()
+  }, [])
+
+  const loadMenuItems = async () => {
+    try {
+      setLoading(true)
+      const items = await menuApi.getAll()
+      setMenuItems(items)
+    } catch (error) {
+      console.error('Error loading menu items:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleAvailability = async (itemId: number, currentAvailable: boolean) => {
+    try {
+      setUpdatingItem(itemId)
+      await menuApi.updateAvailability(itemId, !currentAvailable, 'Updated from staff dashboard')
+      
+      // Update local state
+      setMenuItems(items => 
+        items.map(item => 
+          item.id === itemId 
+            ? { ...item, available: !currentAvailable }
+            : item
+        )
+      )
+    } catch (error) {
+      console.error('Error updating menu item:', error)
+      alert('เกิดข้อผิดพลาดในการอัปเดตเมนู')
+    } finally {
+      setUpdatingItem(null)
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      nameEn: '',
+      description: '',
+      price: '',
+      category: 'KANOM',
+      image: ''
+    })
+    setEditingItem(null)
+    setShowCreateForm(false)
+  }
+
+  const handleCreateNew = () => {
+    resetForm()
+    setShowCreateForm(true)
+  }
+
+  const handleEdit = (item: MenuItem) => {
+    setFormData({
+      name: item.name,
+      nameEn: item.nameEn || '',
+      description: item.description || '',
+      price: item.price.toString(),
+      category: item.category,
+      image: item.image || ''
+    })
+    setEditingItem(item)
+    setShowCreateForm(true)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.name || !formData.price) {
+      alert('กรุณากรอกชื่อเมนูและราคา')
+      return
+    }
+
+    const priceValue = parseFloat(formData.price)
+    if (isNaN(priceValue) || priceValue <= 0) {
+      alert('กรุณากรอกราคาที่ถูกต้อง')
+      return
+    }
+
+    try {
+      const menuData = {
+        name: formData.name.trim(),
+        nameEn: formData.nameEn.trim() || undefined,
+        description: formData.description.trim() || undefined,
+        price: priceValue,
+        category: formData.category,
+        image: formData.image || undefined
+      }
+
+      console.log('Sending menu data:', menuData)
+      console.log('Auth token exists:', !!localStorage.getItem('authToken'))
+
+      if (editingItem) {
+        // Update existing item
+        await menuApi.update(editingItem.id, menuData)
+        setMenuItems(items => 
+          items.map(item => 
+            item.id === editingItem.id 
+              ? { ...item, ...menuData }
+              : item
+          )
+        )
+      } else {
+        // Create new item
+        const newItem = await menuApi.create(menuData)
+        setMenuItems(items => [...items, newItem])
+      }
+
+      resetForm()
+      alert(editingItem ? 'อัปเดตเมนูเรียบร้อย' : 'สร้างเมนูใหม่เรียบร้อย')
+    } catch (error: any) {
+      console.error('Error saving menu item:', error)
+      console.error('Error response:', error.response?.data)
+      
+      let errorMessage = 'เกิดข้อผิดพลาดในการบันทึกเมนู'
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'ไม่มีสิทธิ์เข้าใช้งาน กรุณาล็อกอินใหม่'
+      } else if (error.response?.status === 403) {
+        errorMessage = 'ไม่มีสิทธิ์ในการสร้างเมนู'
+      } else if (error.response?.data?.error?.message) {
+        errorMessage = `เกิดข้อผิดพลาด: ${error.response.data.error.message}`
+      }
+      
+      alert(errorMessage)
+    }
+  }
+
+  const handleDelete = async (item: MenuItem) => {
+    if (!confirm(`ต้องการลบเมนู "${item.name}" หรือไม่?`)) {
+      return
+    }
+
+    try {
+      await menuApi.delete(item.id)
+      setMenuItems(items => items.filter(i => i.id !== item.id))
+      alert('ลบเมนูเรียบร้อย')
+    } catch (error) {
+      console.error('Error deleting menu item:', error)
+      alert('เกิดข้อผิดพลาดในการลบเมนู')
+    }
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // For now, just store the file name. In production, you'd upload to a CDN
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFormData(prev => ({ ...prev, image: e.target?.result as string }))
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="menu-view">
+        <h2>🍽️ จัดการเมนู</h2>
+        <p>กำลังโหลดข้อมูลเมนู...</p>
+      </div>
+    )
+  }
+
+  const kanomItems = menuItems.filter(item => item.category === 'KANOM')
+  const drinkItems = menuItems.filter(item => item.category === 'DRINK')
+
   return (
     <div className="menu-view">
-      <h2>🍽️ จัดการเมนู</h2>
-      <p>ระบบจัดการเมนูจะแสดงที่นี่</p>
+      <div className="menu-header">
+        <h2>🍽️ จัดการเมนู</h2>
+        <div className="menu-header-actions">
+          {user?.role === 'ADMIN' && (
+            <button className="create-menu-btn" onClick={handleCreateNew}>
+              <Plus size={16} />
+              เพิ่มเมนู
+            </button>
+          )}
+          <button className="refresh-menu-btn" onClick={loadMenuItems}>
+            <RefreshCw size={16} />
+            รีเฟรช
+          </button>
+        </div>
+      </div>
+
+      {showCreateForm && (
+        <div className="menu-form-overlay">
+          <div className="menu-form-modal">
+            <div className="menu-form-header">
+              <h3>{editingItem ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่'}</h3>
+              <button className="close-form-btn" onClick={resetForm}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="menu-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>ชื่อเมนู (ไทย) *</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="เช่น ขนมครกหวาน"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>ชื่อเมนู (อังกฤษ)</label>
+                  <input
+                    type="text"
+                    value={formData.nameEn}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nameEn: e.target.value }))}
+                    placeholder="e.g. Sweet Kanom"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>ราคา (บาท) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                    placeholder="25.00"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>ประเภท *</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as 'KANOM' | 'DRINK' }))}
+                    required
+                  >
+                    <option value="KANOM">ขนมครก (Kanom)</option>
+                    <option value="DRINK">เครื่องดื่ม (Drink)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>คำอธิบาย</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="คำอธิบายเมนู..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>รูปภาพ</label>
+                <div className="image-upload-container">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    id="image-upload"
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="image-upload" className="image-upload-btn">
+                    <Upload size={16} />
+                    เลือกรูปภาพ
+                  </label>
+                  {formData.image && (
+                    <div className="image-preview">
+                      <img src={formData.image} alt="Preview" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" onClick={resetForm} className="cancel-btn">
+                  ยกเลิก
+                </button>
+                <button type="submit" className="save-btn">
+                  <Save size={16} />
+                  {editingItem ? 'อัปเดต' : 'บันทึก'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="menu-categories">
+        <div className="menu-category">
+          <h3>🥞 ขนมครก (Kanom)</h3>
+          <div className="menu-items-grid">
+            {kanomItems.map(item => (
+              <div key={item.id} className={`menu-item-card ${!item.available ? 'unavailable' : ''}`}>
+                <div className="menu-item-info">
+                  <h4>{item.name}</h4>
+                  {item.nameEn && <p className="menu-item-name-en">{item.nameEn}</p>}
+                  {item.description && <p className="menu-item-description">{item.description}</p>}
+                  <p className="menu-item-price">฿{item.price}</p>
+                </div>
+                <div className="menu-item-actions">
+                  {user?.role === 'ADMIN' && (
+                    <div className="menu-item-buttons">
+                      <button
+                        className="edit-menu-btn"
+                        onClick={() => handleEdit(item)}
+                        title="แก้ไขเมนู"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        className="delete-menu-btn"
+                        onClick={() => handleDelete(item)}
+                        title="ลบเมนู"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    className={`availability-toggle ${item.available ? 'available' : 'unavailable'}`}
+                    onClick={() => toggleAvailability(item.id, item.available)}
+                    disabled={updatingItem === item.id}
+                  >
+                    {updatingItem === item.id ? (
+                      <RefreshCw size={16} className="spinning" />
+                    ) : item.available ? (
+                      <Power size={16} />
+                    ) : (
+                      <PowerOff size={16} />
+                    )}
+                    {item.available ? 'พร้อมขาย' : 'หยุดขาย'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="menu-category">
+          <h3>🥤 เครื่องดื่ม (Drinks)</h3>
+          <div className="menu-items-grid">
+            {drinkItems.map(item => (
+              <div key={item.id} className={`menu-item-card ${!item.available ? 'unavailable' : ''}`}>
+                <div className="menu-item-info">
+                  <h4>{item.name}</h4>
+                  {item.nameEn && <p className="menu-item-name-en">{item.nameEn}</p>}
+                  {item.description && <p className="menu-item-description">{item.description}</p>}
+                  <p className="menu-item-price">฿{item.price}</p>
+                </div>
+                <div className="menu-item-actions">
+                  {user?.role === 'ADMIN' && (
+                    <div className="menu-item-buttons">
+                      <button
+                        className="edit-menu-btn"
+                        onClick={() => handleEdit(item)}
+                        title="แก้ไขเมนู"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        className="delete-menu-btn"
+                        onClick={() => handleDelete(item)}
+                        title="ลบเมนู"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    className={`availability-toggle ${item.available ? 'available' : 'unavailable'}`}
+                    onClick={() => toggleAvailability(item.id, item.available)}
+                    disabled={updatingItem === item.id}
+                  >
+                    {updatingItem === item.id ? (
+                      <RefreshCw size={16} className="spinning" />
+                    ) : item.available ? (
+                      <Power size={16} />
+                    ) : (
+                      <PowerOff size={16} />
+                    )}
+                    {item.available ? 'พร้อมขาย' : 'หยุดขาย'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
