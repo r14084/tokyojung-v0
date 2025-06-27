@@ -8,9 +8,10 @@ const app = express()
 let prisma: PrismaClient
 try {
   prisma = new PrismaClient()
+  console.log('✅ Prisma client initialized')
 } catch (error) {
-  console.error('Failed to initialize Prisma:', error)
-  process.exit(1)
+  console.error('❌ Failed to initialize Prisma:', error)
+  // Don't exit in production, just log the error
 }
 
 // CORS configuration
@@ -56,13 +57,35 @@ app.get('/api/health', (req, res) => {
   }
 })
 
-// Test database endpoint (temporarily disabled)
+// Test database endpoint
 app.get('/api/test-db', async (req, res) => {
-  res.json({
-    status: 'success',
-    message: 'Database test disabled - API working',
-    note: 'Will implement database connection later'
-  })
+  try {
+    if (!prisma) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Prisma client not initialized'
+      })
+    }
+    
+    const userCount = await prisma.user.count()
+    const postCount = await prisma.post.count()
+    
+    res.json({
+      status: 'success',
+      message: 'Database connected',
+      data: {
+        users: userCount,
+        posts: postCount
+      }
+    })
+  } catch (error) {
+    console.error('Database error:', error)
+    res.status(500).json({
+      status: 'error',
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
 })
 
 // Users endpoints (temporarily mock data)
