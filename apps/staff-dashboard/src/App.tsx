@@ -990,11 +990,27 @@ function ReportsView() {
 
   const handleExport = async (format: 'csv' | 'pdf') => {
     try {
-      await reportsApi.exportReport(selectedPeriod, format)
-      alert(`รายงานถูกดาวน์โหลดเป็น ${format.toUpperCase()} แล้ว`)
-    } catch (error) {
+      const success = await reportsApi.exportReport(selectedPeriod, format)
+      if (success) {
+        alert(`รายงานถูกดาวน์โหลดเป็น ${format.toUpperCase()} แล้ว`)
+      } else {
+        alert('ไม่สามารถสร้างไฟล์รายงานได้')
+      }
+    } catch (error: any) {
       console.error('Export error:', error)
-      alert('เกิดข้อผิดพลาดในการส่งออกรายงาน')
+      let errorMessage = 'เกิดข้อผิดพลาดในการส่งออกรายงาน'
+      
+      if (error.response?.data?.error?.message) {
+        errorMessage = `เกิดข้อผิดพลาด: ${error.response.data.error.message}`
+      } else if (error.response?.status === 401) {
+        errorMessage = 'กรุณาเข้าสู่ระบบใหม่'
+      } else if (error.response?.status === 403) {
+        errorMessage = 'คุณไม่มีสิทธิ์ในการส่งออกรายงาน'
+      } else if (error.message) {
+        errorMessage = `เกิดข้อผิดพลาด: ${error.message}`
+      }
+      
+      alert(errorMessage)
     }
   }
 
