@@ -8,18 +8,116 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Staff/User Management
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
-  posts Post[]
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  name     String
+  role     UserRole @default(CASHIER)
+  password String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  processedOrders Order[] @relation("ProcessedBy")
 }
 
-model Post {
-  id        Int     @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean @default(false)
-  authorId  Int?
-  author    User?   @relation(fields: [authorId], references: [id])
+enum UserRole {
+  ADMIN
+  CASHIER
+  KITCHEN
+}
+
+// Menu Management
+model MenuItem {
+  id          Int           @id @default(autoincrement())
+  name        String
+  nameEn      String?
+  description String?
+  price       Decimal       @db.Decimal(10, 2)
+  category    MenuCategory
+  image       String?
+  available   Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  orderItems  OrderItem[]
+  availabilityLogs AvailabilityLog[]
+}
+
+enum MenuCategory {
+  KANOM
+  DRINK
+}
+
+// Order Management
+model Order {
+  id           Int         @id @default(autoincrement())
+  queueNumber  Int
+  customerName String
+  status       OrderStatus @default(PENDING_PAYMENT)
+  totalAmount  Decimal     @db.Decimal(10, 2)
+  notes        String?
+  paymentMethod PaymentMethod?
+  processedById Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  
+  // Relations
+  items        OrderItem[]
+  processedBy  User?       @relation("ProcessedBy", fields: [processedById], references: [id])
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  PROMPTPAY
+}
+
+// Order Items
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  menuItemId Int
+  quantity   Int      @default(1)
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  totalPrice Decimal  @db.Decimal(10, 2)
+  notes      String?
+  
+  // Relations
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+// Availability Tracking
+model AvailabilityLog {
+  id         Int      @id @default(autoincrement())
+  menuItemId Int
+  available  Boolean
+  reason     String?
+  changedAt  DateTime @default(now())
+  
+  // Relations
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+// Daily Summary
+model DailySummary {
+  id           Int      @id @default(autoincrement())
+  date         DateTime @unique @db.Date
+  totalOrders  Int      @default(0)
+  totalRevenue Decimal  @db.Decimal(10, 2) @default(0)
+  avgOrderValue Decimal @db.Decimal(10, 2) @default(0)
+  popularItems Json?
+  createdAt    DateTime @default(now())
 }
