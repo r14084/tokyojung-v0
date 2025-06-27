@@ -1,11 +1,70 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Package, BarChart3, Settings, LogOut, Bell, RefreshCw } from 'lucide-react'
+import { LoginForm } from './components/LoginForm'
 import './App.css'
 
 type ViewType = 'dashboard' | 'orders' | 'menu' | 'reports' | 'settings'
 
+interface User {
+  id: number
+  email: string
+  name: string
+  role: 'ADMIN' | 'CASHIER' | 'KITCHEN'
+}
+
 function App() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const token = localStorage.getItem('authToken')
+    const savedUser = localStorage.getItem('user')
+    
+    if (token && savedUser) {
+      try {
+        setUser(JSON.parse(savedUser))
+        setIsAuthenticated(true)
+      } catch (error) {
+        // Clear invalid data
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('user')
+      }
+    }
+    setLoading(false)
+  }, [])
+
+  const handleLogin = (_token: string, userData: User) => {
+    setUser(userData)
+    setIsAuthenticated(true)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('user')
+    setUser(null)
+    setIsAuthenticated(false)
+    setCurrentView('dashboard')
+  }
+
+  if (loading) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="login-header">
+            <h1>🥞 Tokyojung Staff</h1>
+            <p>กำลังโหลด...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} />
+  }
 
   return (
     <div className="tokyojung-staff">
@@ -21,7 +80,7 @@ function App() {
             <button className="refresh-btn">
               <RefreshCw size={20} />
             </button>
-            <button className="logout-btn">
+            <button className="logout-btn" onClick={handleLogout}>
               <LogOut size={20} />
               ออกจากระบบ
             </button>
@@ -35,8 +94,12 @@ function App() {
             <div className="user-info">
               <div className="user-avatar">👨‍💼</div>
               <div className="user-details">
-                <h3>Admin User</h3>
-                <p className="user-role">ผู้ดูแลระบบ</p>
+                <h3>{user?.name}</h3>
+                <p className="user-role">
+                  {user?.role === 'ADMIN' && 'ผู้ดูแลระบบ'}
+                  {user?.role === 'CASHIER' && 'พนักงานการเงิน'}
+                  {user?.role === 'KITCHEN' && 'พนักงานครัว'}
+                </p>
               </div>
             </div>
 
