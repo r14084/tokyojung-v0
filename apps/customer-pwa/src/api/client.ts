@@ -54,12 +54,50 @@ export const menuApi = {
 
 export const orderApi = {
   create: async (order: Order) => {
-    const response = await api.post('/api/orders', order)
-    return response.data
+    try {
+      // Use tRPC format for order creation
+      const response = await api.post('/api/trpc/orders.create', {
+        customerName: order.customerName,
+        items: order.items,
+        notes: order.notes
+      })
+      
+      if (response.data?.result?.data) {
+        return {
+          status: 'success',
+          data: response.data.result.data
+        }
+      } else if (response.data?.error) {
+        throw new Error(response.data.error.message || 'Order creation failed')
+      } else {
+        throw new Error('Unexpected response format')
+      }
+    } catch (error: any) {
+      console.error('Order creation error:', error)
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error.message)
+      }
+      throw error
+    }
   },
   
-  getAll: async () => {
-    const response = await api.get('/api/orders')
-    return response.data.data || []
+  getById: async (orderId: number) => {
+    try {
+      const response = await api.get(`/api/trpc/orders.getById?batch=1&input=${orderId}`)
+      return response.data?.[0]?.result?.data
+    } catch (error) {
+      console.error('Get order error:', error)
+      throw error
+    }
+  },
+
+  getByQueueNumber: async (queueNumber: number) => {
+    try {
+      const response = await api.get(`/api/trpc/orders.getByQueueNumber?batch=1&input=${queueNumber}`)
+      return response.data?.[0]?.result?.data
+    } catch (error) {
+      console.error('Get order by queue error:', error)
+      throw error
+    }
   }
 }

@@ -93,13 +93,13 @@ export function MenuView({ onAddToCart, onProceedToCart, cartItemsCount }: MenuV
 
       {/* Cart Button */}
       {cartItemsCount > 0 && (
-        <div className="cart-floating-button">
+        <div className="cart-button-container">
           <button 
             className="cart-button"
             onClick={onProceedToCart}
           >
             <ShoppingCart size={20} />
-            <span>ตะกร้า ({cartItemsCount})</span>
+            <span>ดูตะกร้า ({cartItemsCount} รายการ)</span>
           </button>
         </div>
       )}

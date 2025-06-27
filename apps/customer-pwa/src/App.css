@@ -213,24 +213,22 @@
   border-radius: 12px;
 }
 
-/* Cart Floating Button */
-.cart-floating-button {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  z-index: 50;
+/* Cart Button - Non-sticky version */
+.cart-button-container {
+  margin: 2rem 0;
+  text-align: center;
 }
 
 .cart-button {
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   color: white;
   border: none;
-  border-radius: 50px;
-  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  padding: 1rem 2rem;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   box-shadow: 0 4px 16px rgba(255, 152, 0, 0.4);
