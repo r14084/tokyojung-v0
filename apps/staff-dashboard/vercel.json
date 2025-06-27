@@ -1,16 +1,6 @@
 {
-  "version": 2,
-  "name": "tokyojung-staff-dashboard",
-  "builds": [
-    {
-      "src": "dist/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/dist/$1"
-    }
-  ]
+  "framework": "vite",
+  "buildCommand": "npm ci && npm run build && cp -r dist/* public/",
+  "outputDirectory": "public",
+  "installCommand": "npm ci"
 }
