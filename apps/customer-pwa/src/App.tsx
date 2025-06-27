@@ -141,7 +141,9 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <div style={{ minHeight: '100vh', backgroundColor: '#fff' }}>
+        <AppContent />
+      </div>
     </QueryClientProvider>
   )
 }

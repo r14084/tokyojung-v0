@@ -17,11 +17,14 @@ export function MenuView({ onAddToCart, onProceedToCart, cartItemsCount }: MenuV
     const fetchMenu = async () => {
       try {
         setLoading(true)
+        console.log('🔄 กำลังโหลดเมนู...')
+        console.log('API URL:', import.meta.env.VITE_API_URL)
         const items = await menuApi.getAll()
+        console.log('📋 เมนูที่ได้รับ:', items)
         setMenuItems(items)
         setError(null)
       } catch (err) {
-        console.error('Failed to fetch menu:', err)
+        console.error('❌ ไม่สามารถโหลดเมนูได้:', err)
         setError('ไม่สามารถโหลดเมนูได้ กรุณาลองใหม่อีกครั้ง')
       } finally {
         setLoading(false)
