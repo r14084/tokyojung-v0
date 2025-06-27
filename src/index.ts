@@ -3,7 +3,15 @@ import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
 
 const app = express()
-const prisma = new PrismaClient()
+
+// Initialize Prisma with error handling
+let prisma: PrismaClient
+try {
+  prisma = new PrismaClient()
+} catch (error) {
+  console.error('Failed to initialize Prisma:', error)
+  process.exit(1)
+}
 
 // CORS configuration
 const corsOptions = {
@@ -20,17 +28,32 @@ const corsOptions = {
 app.use(cors(corsOptions))
 app.use(express.json())
 
-// Health check endpoint
+// Health check endpoint (no database required)
 app.get('/', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    message: 'Tokyojung API Server',
-    timestamp: new Date().toISOString() 
-  })
+  try {
+    res.json({ 
+      status: 'ok', 
+      message: 'Tokyojung API Server',
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV || 'development'
+    })
+  } catch (error) {
+    console.error('Health check error:', error)
+    res.status(500).json({ status: 'error', message: 'Server error' })
+  }
 })
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+  try {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    })
+  } catch (error) {
+    console.error('Health check error:', error)
+    res.status(500).json({ status: 'error', message: 'Health check failed' })
+  }
 })
 
 // Test database endpoint

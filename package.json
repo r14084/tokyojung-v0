@@ -5,8 +5,9 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/index.js",
+    "postinstall": "prisma generate",
     "queries": "ts-node ./src/queries.ts",
     "caching": "ts-node ./src/caching.ts"
   },
