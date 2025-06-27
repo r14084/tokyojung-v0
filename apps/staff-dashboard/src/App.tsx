@@ -1282,8 +1282,6 @@ function ReportsView() {
 
 function SettingsView({ user }: { user: User | null }) {
   const [userSettings, setUserSettings] = useState({
-    theme: localStorage.getItem('theme') || 'light',
-    language: localStorage.getItem('language') || 'th',
     notifications: localStorage.getItem('notifications') !== 'false',
     autoRefresh: localStorage.getItem('autoRefresh') !== 'false'
   })
@@ -1306,30 +1304,6 @@ function SettingsView({ user }: { user: User | null }) {
   const handleSettingChange = (key: string, value: any) => {
     setUserSettings(prev => ({ ...prev, [key]: value }))
     localStorage.setItem(key, value.toString())
-    
-    if (key === 'theme') {
-      document.documentElement.setAttribute('data-theme', value)
-      // Apply theme immediately
-      applyTheme(value)
-    }
-    
-    if (key === 'language') {
-      // Language change could trigger UI updates
-      alert(value === 'en' ? 'Language changed to English' : 'เปลี่ยนภาษาเป็นไทยแล้ว')
-    }
-  }
-
-  const applyTheme = (theme: string) => {
-    const root = document.documentElement
-    if (theme === 'dark') {
-      root.style.setProperty('--bg-color', '#1a1a1a')
-      root.style.setProperty('--text-color', '#ffffff')
-      root.style.setProperty('--card-bg', '#2d2d2d')
-    } else {
-      root.style.setProperty('--bg-color', '#ffffff')
-      root.style.setProperty('--text-color', '#333333')
-      root.style.setProperty('--card-bg', '#ffffff')
-    }
   }
 
   const handlePasswordChange = () => {
@@ -1486,31 +1460,6 @@ function SettingsView({ user }: { user: User | null }) {
           )}
         </div>
 
-        {/* Display Settings */}
-        <div className="settings-section">
-          <h3>🎨 การแสดงผล</h3>
-          <div className="setting-item">
-            <label>ธีม:</label>
-            <select 
-              value={userSettings.theme}
-              onChange={(e) => handleSettingChange('theme', e.target.value)}
-            >
-              <option value="light">🌞 สว่าง</option>
-              <option value="dark">🌙 มืด</option>
-              <option value="auto">🔄 อัตโนมัติ</option>
-            </select>
-          </div>
-          <div className="setting-item">
-            <label>ภาษา:</label>
-            <select 
-              value={userSettings.language}
-              onChange={(e) => handleSettingChange('language', e.target.value)}
-            >
-              <option value="th">🇹🇭 ไทย</option>
-              <option value="en">🇺🇸 English</option>
-            </select>
-          </div>
-        </div>
 
         {/* Notification Settings */}
         <div className="settings-section">
