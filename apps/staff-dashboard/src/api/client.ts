@@ -305,10 +305,26 @@ export const reportsApi = {
       })
       
       if (response.data?.result?.data) {
+        let blob: Blob
+        
+        if (format === 'csv') {
+          // For CSV, the data is a string
+          blob = new Blob([response.data.result.data], {
+            type: 'text/csv;charset=utf-8'
+          })
+        } else {
+          // For PDF, the data is base64 encoded
+          const binaryString = atob(response.data.result.data)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          blob = new Blob([bytes], {
+            type: 'application/pdf'
+          })
+        }
+        
         // Create download link
-        const blob = new Blob([response.data.result.data], {
-          type: format === 'csv' ? 'text/csv' : 'application/pdf'
-        })
         const url = window.URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url
@@ -317,7 +333,10 @@ export const reportsApi = {
         link.click()
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
+        
+        return true
       }
+      return false
     } catch (error) {
       console.error('Export report error:', error)
       throw error
