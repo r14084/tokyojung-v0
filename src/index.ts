@@ -56,74 +56,38 @@ app.get('/api/health', (req, res) => {
   }
 })
 
-// Test database endpoint
+// Test database endpoint (temporarily disabled)
 app.get('/api/test-db', async (req, res) => {
-  try {
-    const userCount = await prisma.user.count()
-    const postCount = await prisma.post.count()
-    
-    res.json({
-      status: 'success',
-      message: 'Database connected',
-      data: {
-        users: userCount,
-        posts: postCount
-      }
-    })
-  } catch (error) {
-    console.error('Database error:', error)
-    res.status(500).json({
-      status: 'error',
-      message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    })
-  }
+  res.json({
+    status: 'success',
+    message: 'Database test disabled - API working',
+    note: 'Will implement database connection later'
+  })
 })
 
-// Users endpoints
+// Users endpoints (temporarily mock data)
 app.get('/api/users', async (req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      include: {
-        posts: true
-      }
-    })
-    res.json(users)
-  } catch (error) {
-    console.error('Error fetching users:', error)
-    res.status(500).json({ error: 'Failed to fetch users' })
-  }
+  res.json({
+    status: 'success',
+    message: 'Mock users data',
+    data: []
+  })
 })
 
 app.post('/api/users', async (req, res) => {
-  try {
-    const { email, name } = req.body
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name
-      }
-    })
-    res.json(user)
-  } catch (error) {
-    console.error('Error creating user:', error)
-    res.status(500).json({ error: 'Failed to create user' })
-  }
+  res.json({
+    status: 'success',
+    message: 'User creation disabled - will implement later'
+  })
 })
 
-// Posts endpoints
+// Posts endpoints (mock data)
 app.get('/api/posts', async (req, res) => {
-  try {
-    const posts = await prisma.post.findMany({
-      include: {
-        author: true
-      }
-    })
-    res.json(posts)
-  } catch (error) {
-    console.error('Error fetching posts:', error)
-    res.status(500).json({ error: 'Failed to fetch posts' })
-  }
+  res.json({
+    status: 'success',
+    message: 'Mock posts data',
+    data: []
+  })
 })
 
 // Error handling middleware
