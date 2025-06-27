@@ -55,12 +55,29 @@ export const menuApi = {
 export const orderApi = {
   create: async (order: Order) => {
     try {
-      // Use tRPC format for order creation
-      const response = await api.post('/api/trpc/orders.create', {
+      console.log('Creating order with data:', order)
+      
+      // Try the correct tRPC format
+      const requestData = {
         customerName: order.customerName,
-        items: order.items,
-        notes: order.notes
+        items: order.items.map(item => ({
+          menuItemId: item.menuItemId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          notes: item.notes || ""
+        })),
+        notes: order.notes || ""
+      }
+      
+      console.log('Sending request data:', requestData)
+      
+      const response = await api.post('/api/trpc/orders.create', requestData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       })
+      
+      console.log('Order API response:', response.data)
       
       if (response.data?.result?.data) {
         return {
@@ -74,6 +91,7 @@ export const orderApi = {
       }
     } catch (error: any) {
       console.error('Order creation error:', error)
+      console.error('Error response:', error.response?.data)
       if (error.response?.data?.error) {
         throw new Error(error.response.data.error.message)
       }

@@ -90,6 +90,16 @@ function AppContent() {
         <div className="header-content">
           <h1 className="app-title">🥞 Tokyojung Grab & Go</h1>
           <p className="app-subtitle">ขนมครกและเครื่องดื่มแสนอร่อย</p>
+          
+          {/* Shopping Cart Icon */}
+          {currentView === 'menu' && cart.length > 0 && (
+            <div className="cart-icon-container" onClick={proceedToCart}>
+              <div className="cart-icon">
+                🛒
+                <span className="cart-count">{cart.reduce((total, item) => total + item.quantity, 0)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
