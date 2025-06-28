@@ -1,23 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "apps/customer-pwa/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "buildCommand": "npm install && npm run build",
-        "outputDirectory": "dist"
-      }
-    },
-    {
-      "src": "apps/staff-dashboard/package.json",
-      "use": "@vercel/static-build", 
-      "config": {
-        "buildCommand": "npm install && npm run build",
-        "outputDirectory": "dist"
-      }
-    }
-  ],
   "functions": {
     "api/*.ts": {
       "runtime": "@vercel/node"
@@ -26,27 +8,5 @@
       "runtime": "@vercel/node"
     }
   },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/staff/assets/(.*)",
-      "dest": "/apps/staff-dashboard/dist/assets/$1"
-    },
-    {
-      "src": "/staff(.*)",
-      "dest": "/apps/staff-dashboard/dist/index.html"
-    },
-    {
-      "src": "/",
-      "dest": "/apps/customer-pwa/dist/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/apps/customer-pwa/dist/index.html"
-    }
-  ],
-  "installCommand": "npm install && npx prisma generate"
+  "buildCommand": "cd apps/customer-pwa && npm install && npm run build && cd ../staff-dashboard && npm install && npm run build && cd ../../ && npx prisma generate"
 }
