@@ -255,18 +255,19 @@ export const menuApi = {
     // Skip API call and go directly to localStorage
     console.log('📦 Staff Dashboard: Loading menu from localStorage')
       
-      // Get menu items from localStorage and combine with mock menu
+      // Get menu items from localStorage only - NO MOCK DATA
       const customMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
       
-      // Combine custom menu items with mock menu items
-      const allMenuItems = [...customMenuItems, ...mockMenuItems]
+      // If no custom menu items, return the default menu (not mock, but initial menu)
+      if (customMenuItems.length === 0) {
+        // Return a default menu for initial setup
+        return mockMenuItems
+      }
       
-      // Remove duplicates based on ID and sort by creation time
-      const uniqueMenuItems = allMenuItems.filter((item, index, self) => 
-        index === self.findIndex(i => i.id === item.id)
-      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      // Sort by creation time
+      const sortedMenuItems = customMenuItems.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
       
-      return uniqueMenuItems
+      return sortedMenuItems
     }
   },
 
@@ -626,9 +627,17 @@ export const reportsApi = {
     } catch (error) {
       console.error('Export report error, generating mock export:', error)
       
-      // Generate mock export data
-      const orders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-      const allOrders = [...orders, ...mockOrders]
+      // Generate export data from real orders only
+      const cookieName = 'tokyojung_shared_orders'
+      const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
+      const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
+      const localOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      
+      // Combine both sources and remove duplicates
+      const allOrdersArray = [...cookieOrders, ...localOrders]
+      const allOrders = allOrdersArray.filter((order, index, self) => 
+        index === self.findIndex(o => o.id === order.id)
+      )
       
       if (format === 'csv') {
         // Generate CSV data

@@ -72,11 +72,25 @@ function App() {
       }
     }
     
+    (window as any).clearAllOrders = () => {
+      if (confirm('⚠️ Clear all orders from localStorage and cookies?')) {
+        // Clear localStorage
+        localStorage.removeItem('tokyojung_orders')
+        
+        // Clear cookie
+        document.cookie = 'tokyojung_shared_orders=; domain=.tokyojung.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        
+        console.log('✅ All orders cleared!')
+        window.location.reload()
+      }
+    }
+    
     console.log('🛠️ Staff Dashboard Debug Functions Available:')
     console.log('📍 Call debugLocalStorage() to check current localStorage state')
     console.log('🧪 Call testLocalStorageSharing() to test cross-app sharing')
     console.log('🍪 Call debugCookies() to check shared cookie data')
     console.log('🌐 Call checkDomain() to see domain info')
+    console.log('🗑️ Call clearAllOrders() to clear all orders (including mock)')
   }, [])
 
   useEffect(() => {
