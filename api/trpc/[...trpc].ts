@@ -44,7 +44,9 @@ export default async function trpcHandler(req: VercelRequest, res: VercelRespons
       return
     }
     
-    const path = pathMatch[1]
+    let path = pathMatch[1]
+    // Remove query parameters from path
+    path = path.split('?')[0]
     const ctx = createContext(req)
     
     // Handle batch requests
