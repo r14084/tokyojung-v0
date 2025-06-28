@@ -185,7 +185,7 @@ export const orderApi = {
         })
       }
       
-      // Save to localStorage to share with staff dashboard
+      // Save to localStorage (for same domain access)
       const existingOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
       existingOrders.push(mockOrder)
       localStorage.setItem('tokyojung_orders', JSON.stringify(existingOrders))
@@ -193,6 +193,26 @@ export const orderApi = {
       console.log('🍜 Customer PWA: Saved order to localStorage')
       console.log('🍜 Order saved:', mockOrder)
       console.log('🍜 Total orders in localStorage:', existingOrders.length)
+      
+      // Since localStorage doesn't work across subdomains, 
+      // let's use a shared cookie that both subdomains can access
+      try {
+        // Get existing orders from cookie
+        const cookieName = 'tokyojung_shared_orders'
+        const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
+        const existingCookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
+        
+        // Add new order
+        existingCookieOrders.push(mockOrder)
+        
+        // Save to cookie with domain set to parent domain so both subdomains can access
+        document.cookie = `${cookieName}=${encodeURIComponent(JSON.stringify(existingCookieOrders))}; domain=.tokyojung.com; path=/; max-age=86400`
+        
+        console.log('🍜 Customer: Saved order to shared cookie for cross-subdomain access')
+        console.log('🍜 Cookie orders count:', existingCookieOrders.length)
+      } catch (error) {
+        console.log('🍜 Customer: Could not save to shared cookie:', error)
+      }
       
       // Notify staff dashboard via postMessage
       try {

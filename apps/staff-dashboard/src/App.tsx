@@ -45,10 +45,38 @@ function App() {
       localStorage.setItem('test_sharing', JSON.stringify(testData))
       console.log('✅ Saved test data to localStorage:', testData)
     }
+    
+    (window as any).checkDomain = () => {
+      console.log('🌐 Current domain info:')
+      console.log('  - Hostname:', window.location.hostname)
+      console.log('  - Origin:', window.location.origin)
+      console.log('  - Protocol:', window.location.protocol)
+      console.log('  - Port:', window.location.port || 'default')
+      console.log('⚠️  Note: localStorage is domain-specific!')
+      console.log('  - order.tokyojung.com and staff.tokyojung.com are DIFFERENT domains')
+      console.log('  - They cannot share localStorage directly')
+    }
 
+    (window as any).debugCookies = () => {
+      console.log('🍪 Debug Cookies:')
+      console.log('All cookies:', document.cookie)
+      
+      const cookieName = 'tokyojung_shared_orders'
+      const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
+      if (existingCookie) {
+        const orders = JSON.parse(decodeURIComponent(existingCookie.split('=')[1]))
+        console.log('🍪 Shared orders cookie:', orders)
+        console.log('🍪 Order count:', orders.length)
+      } else {
+        console.log('🍪 No shared orders cookie found')
+      }
+    }
+    
     console.log('🛠️ Staff Dashboard Debug Functions Available:')
     console.log('📍 Call debugLocalStorage() to check current localStorage state')
     console.log('🧪 Call testLocalStorageSharing() to test cross-app sharing')
+    console.log('🍪 Call debugCookies() to check shared cookie data')
+    console.log('🌐 Call checkDomain() to see domain info')
   }, [])
 
   useEffect(() => {

@@ -375,24 +375,35 @@ export const menuApi = {
 
 export const orderApi = {
   getAll: async (): Promise<Order[]> => {
-    // Skip API call and go directly to localStorage
-    console.log('📦 Staff Dashboard: Loading orders from localStorage')
+    console.log('📦 Staff Dashboard: Loading orders from shared cookie')
+    
+    try {
+      // First try to get orders from shared cookie (cross-subdomain)
+      const cookieName = 'tokyojung_shared_orders'
+      const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
+      const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
       
-      // Get orders from localStorage (shared with customer PWA) and combine with mock orders
-      const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-      console.log('📦 Staff Dashboard: Found', sharedOrders.length, 'orders in localStorage')
-      console.log('📦 localStorage orders:', sharedOrders)
+      console.log('📦 Staff Dashboard: Found', cookieOrders.length, 'orders in shared cookie')
       
-      // Combine shared orders with mock orders, with shared orders having priority
-      const allOrders = [...sharedOrders, ...mockOrders]
+      // Also check localStorage for backward compatibility
+      const localOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      console.log('📦 Staff Dashboard: Found', localOrders.length, 'orders in localStorage')
       
-      // Remove duplicates based on ID and sort by creation time
+      // Combine both sources and remove duplicates
+      const allOrders = [...cookieOrders, ...localOrders]
       const uniqueOrders = allOrders.filter((order, index, self) => 
         index === self.findIndex(o => o.id === order.id)
-      ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      )
       
-      console.log('📦 Staff Dashboard: Returning', uniqueOrders.length, 'total orders')
-      return uniqueOrders
+      // Sort by creation time (newest first)
+      const sortedOrders = uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      
+      console.log('📦 Staff Dashboard: Returning', sortedOrders.length, 'total orders (no mock data)')
+      return sortedOrders
+    } catch (error) {
+      console.error('📦 Staff Dashboard: Error loading orders:', error)
+      return []
+    }
   },
 
   updateStatus: async (id: number, status: string, paymentMethod?: string) => {
@@ -404,7 +415,7 @@ export const orderApi = {
     } catch (error) {
       console.error('Update status API error, updating localStorage:', error)
       
-      // Update order status in localStorage
+      // Update order status in both localStorage and shared cookie
       const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
       const updatedOrders = sharedOrders.map((order: any) => {
         if (order.id === id) {
@@ -418,6 +429,30 @@ export const orderApi = {
         return order
       })
       localStorage.setItem('tokyojung_orders', JSON.stringify(updatedOrders))
+      
+      // Also update shared cookie
+      try {
+        const cookieName = 'tokyojung_shared_orders'
+        const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
+        const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
+        
+        const updatedCookieOrders = cookieOrders.map((order: any) => {
+          if (order.id === id) {
+            return {
+              ...order,
+              status,
+              paymentMethod: paymentMethod || order.paymentMethod,
+              updatedAt: new Date().toISOString()
+            }
+          }
+          return order
+        })
+        
+        document.cookie = `${cookieName}=${encodeURIComponent(JSON.stringify(updatedCookieOrders))}; domain=.tokyojung.com; path=/; max-age=86400`
+        console.log('📦 Staff: Updated order status in shared cookie')
+      } catch (error) {
+        console.log('📦 Staff: Could not update shared cookie:', error)
+      }
       
       // Notify customer PWA of the change via postMessage
       try {
@@ -455,11 +490,24 @@ export const orderApi = {
   },
 
   getTodayStats: async (): Promise<TodayStats> => {
-    // Skip API call and calculate from localStorage
-    console.log('📦 Staff Dashboard: Calculating stats from localStorage')
+    // Skip API call and calculate from shared cookie and localStorage
+    console.log('📦 Staff Dashboard: Calculating stats from shared data')
     
-    const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-    const allOrders = [...sharedOrders, ...mockOrders]
+    try {
+      // Get orders from both sources
+      const cookieName = 'tokyojung_shared_orders'
+      const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
+      const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
+      const localOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+      
+      // Combine and remove duplicates
+      const allOrdersArray = [...cookieOrders, ...localOrders]
+      const uniqueOrders = allOrdersArray.filter((order, index, self) => 
+        index === self.findIndex(o => o.id === order.id)
+      )
+      
+      // Use ONLY real orders, no mock data
+      const allOrders = uniqueOrders
     
     // Get today's orders
     const today = new Date()
@@ -481,6 +529,14 @@ export const orderApi = {
       ).length
     }
     return mockStats
+    } catch (error) {
+      console.error('📦 Staff Dashboard: Error calculating stats:', error)
+      return {
+        todayOrders: 0,
+        todayRevenue: 0,
+        pendingOrders: 0
+      }
+    }
   }
 }
 
