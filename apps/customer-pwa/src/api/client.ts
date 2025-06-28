@@ -92,29 +92,13 @@ export const menuApi = {
   getAll: async (): Promise<MenuItem[]> => {
     try {
       console.log('Fetching menu from API:', API_URL)
-      // Try API first, fallback to mock data
       const response = await api.get('/api/trpc/menu.getAll?batch=1&input=%7B%7D')
       const apiData = response.data?.[0]?.result?.data || []
-      if (apiData.length > 0) {
-        return apiData
-      }
-      throw new Error('No API data')
+      return apiData.filter((item: MenuItem) => item.available)
     } catch (error) {
-      console.error('Menu API error, using mock data:', error)
-      
-      // Get menu items from localStorage and combine with mock menu
-      const customMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
-      
-      // Combine custom menu items with mock menu items
-      const allMenuItems = [...customMenuItems, ...mockMenuItems]
-      
-      // Remove duplicates based on ID and sort by creation time
-      const uniqueMenuItems = allMenuItems.filter((item, index, self) => 
-        index === self.findIndex(i => i.id === item.id)
-      ).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-      
-      // Filter only available items for customers
-      return uniqueMenuItems.filter(item => item.available !== false)
+      console.error('Menu API error:', error)
+      // Return empty array on error instead of mock data
+      return []
     }
   }
 }
@@ -124,7 +108,6 @@ export const orderApi = {
     try {
       console.log('Creating order with data:', order)
       
-      // Try the correct tRPC format
       const requestData = {
         customerName: order.customerName,
         items: order.items.map(item => ({
@@ -138,11 +121,7 @@ export const orderApi = {
       
       console.log('Sending request data:', requestData)
       
-      const response = await api.post('/api/trpc/orders.create', requestData, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
+      const response = await api.post('/api/trpc/orders.create', requestData)
       
       console.log('Order API response:', response.data)
       
@@ -157,95 +136,8 @@ export const orderApi = {
         throw new Error('Unexpected response format')
       }
     } catch (error: any) {
-      console.error('Order creation error, using mock order:', error)
-      
-      // Mock order creation for demo purposes
-      const mockOrder = {
-        id: Date.now(),
-        queueNumber: Math.floor(Math.random() * 100) + 1,
-        customerName: order.customerName,
-        status: 'PENDING_PAYMENT',
-        totalAmount: order.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0),
-        notes: order.notes,
-        paymentMethod: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        items: order.items.map(item => {
-          const menuItem = mockMenuItems.find(m => m.id === item.menuItemId)
-          return {
-            id: Date.now() + Math.random(),
-            orderId: Date.now(),
-            menuItemId: item.menuItemId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.quantity * item.unitPrice,
-            notes: item.notes || "",
-            menuItem: menuItem || mockMenuItems[0]
-          }
-        })
-      }
-      
-      // Save to localStorage (for same domain access)
-      const existingOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-      existingOrders.push(mockOrder)
-      localStorage.setItem('tokyojung_orders', JSON.stringify(existingOrders))
-      
-      console.log('🍜 Customer PWA: Saved order to localStorage')
-      console.log('🍜 Order saved:', mockOrder)
-      console.log('🍜 Total orders in localStorage:', existingOrders.length)
-      
-      // Since localStorage doesn't work across subdomains, 
-      // let's use a shared cookie that both subdomains can access
-      try {
-        // Get existing orders from cookie
-        const cookieName = 'tokyojung_shared_orders'
-        const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
-        const existingCookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
-        
-        // Add new order
-        existingCookieOrders.push(mockOrder)
-        
-        // Save to cookie with domain set to parent domain so both subdomains can access
-        document.cookie = `${cookieName}=${encodeURIComponent(JSON.stringify(existingCookieOrders))}; domain=.tokyojung.com; path=/; max-age=86400`
-        
-        console.log('🍜 Customer: Saved order to shared cookie for cross-subdomain access')
-        console.log('🍜 Cookie orders count:', existingCookieOrders.length)
-      } catch (error) {
-        console.log('🍜 Customer: Could not save to shared cookie:', error)
-      }
-      
-      // Notify staff dashboard via postMessage
-      try {
-        window.parent.postMessage({
-          type: 'NEW_ORDER_CREATED',
-          data: mockOrder
-        }, window.location.origin)
-        
-        // Also try to notify all windows
-        if (window.opener) {
-          window.opener.postMessage({
-            type: 'NEW_ORDER_CREATED',
-            data: mockOrder
-          }, window.location.origin)
-        }
-        
-        console.log('🍜 Customer: Sent new order notification to staff dashboard')
-      } catch (error) {
-        console.log('🍜 Customer: Could not notify staff dashboard:', error)
-      }
-      
-      // Trigger storage event manually
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'tokyojung_orders',
-        newValue: JSON.stringify(existingOrders),
-        oldValue: JSON.stringify(existingOrders.slice(0, -1)),
-        url: window.location.href
-      }))
-      
-      return {
-        status: 'success',
-        data: mockOrder
-      }
+      console.error('Order creation error:', error)
+      throw error
     }
   },
   

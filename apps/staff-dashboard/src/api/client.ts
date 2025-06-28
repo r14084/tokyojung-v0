@@ -252,22 +252,14 @@ export const authApi = {
 
 export const menuApi = {
   getAll: async (): Promise<MenuItem[]> => {
-    // Skip API call and go directly to localStorage
-    console.log('📦 Staff Dashboard: Loading menu from localStorage')
-      
-      // Get menu items from localStorage only - NO MOCK DATA
-      const customMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
-      
-      // If no custom menu items, return the default menu (not mock, but initial menu)
-      if (customMenuItems.length === 0) {
-        // Return a default menu for initial setup
-        return mockMenuItems
-      }
-      
-      // Sort by creation time
-      const sortedMenuItems = customMenuItems.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-      
-      return sortedMenuItems
+    try {
+      console.log('📦 Staff Dashboard: Loading menu from API')
+      const response = await api.get('/api/trpc/menu.getAllForStaff?batch=1&input=%7B%7D')
+      const apiData = response.data?.[0]?.result?.data || []
+      return apiData
+    } catch (error) {
+      console.error('📦 Staff Dashboard: Error loading menu from API:', error)
+      return []
     }
   },
 
@@ -376,33 +368,14 @@ export const menuApi = {
 
 export const orderApi = {
   getAll: async (): Promise<Order[]> => {
-    console.log('📦 Staff Dashboard: Loading orders from shared cookie')
-    
     try {
-      // First try to get orders from shared cookie (cross-subdomain)
-      const cookieName = 'tokyojung_shared_orders'
-      const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
-      const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
-      
-      console.log('📦 Staff Dashboard: Found', cookieOrders.length, 'orders in shared cookie')
-      
-      // Also check localStorage for backward compatibility
-      const localOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-      console.log('📦 Staff Dashboard: Found', localOrders.length, 'orders in localStorage')
-      
-      // Combine both sources and remove duplicates
-      const allOrders = [...cookieOrders, ...localOrders]
-      const uniqueOrders = allOrders.filter((order, index, self) => 
-        index === self.findIndex(o => o.id === order.id)
-      )
-      
-      // Sort by creation time (newest first)
-      const sortedOrders = uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      
-      console.log('📦 Staff Dashboard: Returning', sortedOrders.length, 'total orders (no mock data)')
-      return sortedOrders
+      console.log('📦 Staff Dashboard: Loading orders from API')
+      const response = await api.get('/api/trpc/orders.getAll?batch=1&input=%7B%7D')
+      const apiData = response.data?.[0]?.result?.data || []
+      console.log('📦 Staff Dashboard: Loaded', apiData.length, 'orders from API')
+      return apiData
     } catch (error) {
-      console.error('📦 Staff Dashboard: Error loading orders:', error)
+      console.error('📦 Staff Dashboard: Error loading orders from API:', error)
       return []
     }
   },
@@ -414,124 +387,22 @@ export const orderApi = {
       })
       return response.data.result.data
     } catch (error) {
-      console.error('Update status API error, updating localStorage:', error)
-      
-      // Update order status in both localStorage and shared cookie
-      const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-      const updatedOrders = sharedOrders.map((order: any) => {
-        if (order.id === id) {
-          return {
-            ...order,
-            status,
-            paymentMethod: paymentMethod || order.paymentMethod,
-            updatedAt: new Date().toISOString()
-          }
-        }
-        return order
-      })
-      localStorage.setItem('tokyojung_orders', JSON.stringify(updatedOrders))
-      
-      // Also update shared cookie
-      try {
-        const cookieName = 'tokyojung_shared_orders'
-        const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
-        const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
-        
-        const updatedCookieOrders = cookieOrders.map((order: any) => {
-          if (order.id === id) {
-            return {
-              ...order,
-              status,
-              paymentMethod: paymentMethod || order.paymentMethod,
-              updatedAt: new Date().toISOString()
-            }
-          }
-          return order
-        })
-        
-        document.cookie = `${cookieName}=${encodeURIComponent(JSON.stringify(updatedCookieOrders))}; domain=.tokyojung.com; path=/; max-age=86400`
-        console.log('📦 Staff: Updated order status in shared cookie')
-      } catch (error) {
-        console.log('📦 Staff: Could not update shared cookie:', error)
-      }
-      
-      // Notify customer PWA of the change via postMessage
-      try {
-        // Try to communicate with customer PWA in same domain
-        window.parent.postMessage({
-          type: 'ORDER_STATUS_UPDATED',
-          data: { orderId: id, status, paymentMethod, timestamp: new Date().toISOString() }
-        }, window.location.origin)
-        
-        // Also try iframe communication if exists
-        const customerFrame = window.parent.frames[0]
-        if (customerFrame && customerFrame !== window) {
-          customerFrame.postMessage({
-            type: 'ORDER_STATUS_UPDATED',
-            data: { orderId: id, status, paymentMethod, timestamp: new Date().toISOString() }
-          }, window.location.origin)
-        }
-        
-        console.log('📦 Staff: Sent status update notification to customer PWA')
-      } catch (error) {
-        console.log('📦 Staff: Could not notify customer PWA:', error)
-      }
-      
-      // Trigger storage event manually for same-domain communication
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'tokyojung_orders',
-        newValue: JSON.stringify(updatedOrders),
-        oldValue: JSON.stringify(sharedOrders),
-        url: window.location.href
-      }))
-      
-      // Find and return the updated order
-      return updatedOrders.find((order: any) => order.id === id)
+      console.error('Update status API error:', error)
+      throw error
     }
   },
 
   getTodayStats: async (): Promise<TodayStats> => {
-    // Skip API call and calculate from shared cookie and localStorage
-    console.log('📦 Staff Dashboard: Calculating stats from shared data')
-    
     try {
-      // Get orders from both sources
-      const cookieName = 'tokyojung_shared_orders'
-      const existingCookie = document.cookie.split('; ').find(row => row.startsWith(cookieName + '='))
-      const cookieOrders = existingCookie ? JSON.parse(decodeURIComponent(existingCookie.split('=')[1])) : []
-      const localOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
-      
-      // Combine and remove duplicates
-      const allOrdersArray = [...cookieOrders, ...localOrders]
-      const uniqueOrders = allOrdersArray.filter((order, index, self) => 
-        index === self.findIndex(o => o.id === order.id)
-      )
-      
-      // Use ONLY real orders, no mock data
-      const allOrders = uniqueOrders
-    
-    // Get today's orders
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    
-    const todayOrders = allOrders.filter(order => {
-      const orderDate = new Date(order.createdAt)
-      orderDate.setHours(0, 0, 0, 0)
-      return orderDate.getTime() === today.getTime()
-    })
-    
-    const mockStats: TodayStats = {
-      todayOrders: todayOrders.length,
-      todayRevenue: todayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
-      pendingOrders: allOrders.filter(order => 
-        order.status === 'PENDING_PAYMENT' || 
-        order.status === 'PAID' || 
-        order.status === 'PREPARING'
-      ).length
-    }
-    return mockStats
+      console.log('📦 Staff Dashboard: Loading stats from API')
+      const response = await api.get('/api/trpc/orders.getTodayStats?batch=1&input=%7B%7D')
+      const apiData = response.data?.[0]?.result?.data
+      if (apiData) {
+        return apiData
+      }
+      throw new Error('No API data')
     } catch (error) {
-      console.error('📦 Staff Dashboard: Error calculating stats:', error)
+      console.error('📦 Staff Dashboard: Error loading stats from API:', error)
       return {
         todayOrders: 0,
         todayRevenue: 0,
