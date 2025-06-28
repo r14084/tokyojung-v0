@@ -52,7 +52,8 @@ export default async function trpcHandler(req: VercelRequest, res: VercelRespons
     const ctx = createContext(req)
     
     // Handle batch requests
-    if (path.includes('batch=1')) {
+    if (url.includes('batch=1')) {
+      const caller = appRouter.createCaller(ctx)
       const urlParams = new URLSearchParams(url.split('?')[1])
       const inputParam = urlParams.get('input')
       
@@ -60,15 +61,15 @@ export default async function trpcHandler(req: VercelRequest, res: VercelRespons
         const input = JSON.parse(decodeURIComponent(inputParam))
         
         // Handle getTodayStats
-        if (path.includes('orders.getTodayStats')) {
-          const result = await appRouter.orders.getTodayStats({ ctx })
+        if (url.includes('orders.getTodayStats')) {
+          const result = await caller.orders.getTodayStats()
           res.json([{ result: { data: result } }])
           return
         }
         
         // Handle getAll orders
-        if (path.includes('orders.getAll')) {
-          const result = await appRouter.orders.getAll({ ctx, input })
+        if (url.includes('orders.getAll')) {
+          const result = await caller.orders.getAll(input)
           res.json([{ result: { data: result } }])
           return
         }
