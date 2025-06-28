@@ -535,18 +535,22 @@ function OrdersView() {
     try {
       setUpdatingOrder(orderId)
       console.log('📦 Staff: Updating order status:', { orderId, newStatus, paymentMethod })
+      console.log('📦 Current orders before update:', orders)
       
       const result = await orderApi.updateStatus(orderId, newStatus, paymentMethod)
+      console.log('📦 Update result:', result)
       
       if (result) {
         // Update local state immediately with the returned data
-        setOrders(prevOrders => 
-          prevOrders.map(order => 
+        setOrders(prevOrders => {
+          const updatedOrders = prevOrders.map(order => 
             order.id === orderId 
               ? { ...order, status: newStatus as any, paymentMethod: paymentMethod as any, updatedAt: new Date().toISOString() }
               : order
           )
-        )
+          console.log('📦 Updated orders:', updatedOrders)
+          return updatedOrders
+        })
         
         console.log('✅ Staff: Order status updated successfully')
         
@@ -557,8 +561,13 @@ function OrdersView() {
                           newStatus === 'READY' ? 'พร้อมรับ' :
                           newStatus === 'COMPLETED' ? 'เสร็จสิ้น' : newStatus
         
-        // Don't show alert for successful updates to avoid interruption
+        // Show brief success message
         console.log(`✅ อัพเดทสถานะเป็น "${statusText}" สำเร็จ`)
+        
+        // Also reload orders to ensure sync with localStorage
+        setTimeout(() => {
+          loadOrders()
+        }, 500)
       }
     } catch (error) {
       console.error('❌ Staff: Error updating order status:', error)
@@ -689,6 +698,21 @@ function OrdersView() {
             style={{ marginLeft: '8px', padding: '6px 12px', fontSize: '12px' }}
           >
             🔍 Debug
+          </button>
+          <button
+            className="test-btn"
+            onClick={() => {
+              console.log('Test button clicked')
+              console.log('Current orders:', orders)
+              if (orders.length > 0) {
+                const firstOrder = orders[0]
+                console.log('Testing update on first order:', firstOrder)
+                updateOrderStatus(firstOrder.id, 'PAID', 'CASH')
+              }
+            }}
+            style={{ marginLeft: '8px', padding: '6px 12px', fontSize: '12px', background: '#ff9800', color: 'white', border: 'none', borderRadius: '4px' }}
+          >
+            🧪 Test Update
           </button>
         </div>
       </div>
