@@ -252,16 +252,8 @@ export const authApi = {
 
 export const menuApi = {
   getAll: async (): Promise<MenuItem[]> => {
-    try {
-      console.log('Fetching menu from API:', API_URL)
-      const response = await api.get('/api/trpc/menu.getAllForStaff?batch=1&input=%7B%7D')
-      const apiData = response.data?.[0]?.result?.data || []
-      if (apiData.length > 0) {
-        return apiData
-      }
-      throw new Error('No API data')
-    } catch (error) {
-      console.error('Menu API error, using mock data:', error)
+    // Skip API call and go directly to localStorage
+    console.log('📦 Staff Dashboard: Loading menu from localStorage')
       
       // Get menu items from localStorage and combine with mock menu
       const customMenuItems = JSON.parse(localStorage.getItem('tokyojung_menu') || '[]')
@@ -383,16 +375,8 @@ export const menuApi = {
 
 export const orderApi = {
   getAll: async (): Promise<Order[]> => {
-    try {
-      console.log('Fetching orders from API:', API_URL)
-      const response = await api.get('/api/trpc/orders.getAll?batch=1&input=%7B%7D')
-      const apiData = response.data?.[0]?.result?.data || []
-      if (apiData.length >= 0) {
-        return apiData
-      }
-      throw new Error('No API data')
-    } catch (error) {
-      console.error('Orders API error, using localStorage and mock data:', error)
+    // Skip API call and go directly to localStorage
+    console.log('📦 Staff Dashboard: Loading orders from localStorage')
       
       // Get orders from localStorage (shared with customer PWA) and combine with mock orders
       const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
@@ -409,7 +393,6 @@ export const orderApi = {
       
       console.log('📦 Staff Dashboard: Returning', uniqueOrders.length, 'total orders')
       return uniqueOrders
-    }
   },
 
   updateStatus: async (id: number, status: string, paymentMethod?: string) => {
@@ -472,23 +455,32 @@ export const orderApi = {
   },
 
   getTodayStats: async (): Promise<TodayStats> => {
-    try {
-      const response = await api.get('/api/trpc/orders.getTodayStats?batch=1&input=%7B%7D')
-      const apiData = response.data?.[0]?.result?.data
-      if (apiData) {
-        return apiData
-      }
-      throw new Error('No API data')
-    } catch (error) {
-      console.error('Stats API error, using mock data:', error)
-      // Calculate mock stats from mock orders
-      const mockStats: TodayStats = {
-        todayOrders: mockOrders.length,
-        todayRevenue: mockOrders.reduce((sum, order) => sum + order.totalAmount, 0),
-        pendingOrders: mockOrders.filter(order => order.status === 'PREPARING' || order.status === 'PAID').length
-      }
-      return mockStats
+    // Skip API call and calculate from localStorage
+    console.log('📦 Staff Dashboard: Calculating stats from localStorage')
+    
+    const sharedOrders = JSON.parse(localStorage.getItem('tokyojung_orders') || '[]')
+    const allOrders = [...sharedOrders, ...mockOrders]
+    
+    // Get today's orders
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const todayOrders = allOrders.filter(order => {
+      const orderDate = new Date(order.createdAt)
+      orderDate.setHours(0, 0, 0, 0)
+      return orderDate.getTime() === today.getTime()
+    })
+    
+    const mockStats: TodayStats = {
+      todayOrders: todayOrders.length,
+      todayRevenue: todayOrders.reduce((sum, order) => sum + order.totalAmount, 0),
+      pendingOrders: allOrders.filter(order => 
+        order.status === 'PENDING_PAYMENT' || 
+        order.status === 'PAID' || 
+        order.status === 'PREPARING'
+      ).length
     }
+    return mockStats
   }
 }
 

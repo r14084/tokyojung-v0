@@ -86,10 +86,8 @@ function App() {
         if (e.key === 'tokyojung_orders') {
           console.log('📦 Staff: Detected order changes from customer PWA')
           fetchPendingOrdersCount()
-          // Reload orders data if we're on orders page
-          if (currentView === 'orders') {
-            loadOrders()
-          }
+          // Orders will reload themselves via their own listener
+          // Just trigger a re-render by updating pending count
         }
       }
 
@@ -100,18 +98,13 @@ function App() {
         if (event.data.type === 'NEW_ORDER_CREATED') {
           console.log('📦 Staff: Received new order notification:', event.data)
           fetchPendingOrdersCount()
-          if (currentView === 'orders') {
-            loadOrders()
-          }
+          // Orders view will handle its own updates
         }
       }
 
       // Poll for changes every 5 seconds as fallback
       const pollInterval = setInterval(() => {
-        if (currentView === 'orders') {
-          console.log('📦 Staff: Polling for order updates...')
-          loadOrders()
-        }
+        fetchPendingOrdersCount()
       }, 5000)
 
       window.addEventListener('storage', handleStorageChange)
