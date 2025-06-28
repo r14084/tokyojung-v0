@@ -6,3 +6,9 @@ dist/
 .vercel
 .next/
 build/
+
+# macOS system files
+.DS_Store
+._*
+**/.DS_Store
+**/._*
