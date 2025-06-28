@@ -8,7 +8,7 @@
       "runtime": "@vercel/node@3.0.27"
     }
   },
-  "buildCommand": "cd apps/customer-pwa && npm install && npm run build && cd ../staff-dashboard && npm install && npm run build && cd ../../ && npx prisma generate && mkdir -p public && cp -r apps/customer-pwa/dist/* public/ && mkdir -p public/staff && cp -r apps/staff-dashboard/dist/* public/staff/",
+  "buildCommand": "./build.sh",
   "routes": [
     {
       "src": "/api/(.*)",
