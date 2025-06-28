@@ -9,7 +9,6 @@
     }
   },
   "buildCommand": "bash build.sh",
-  "nodeVersion": "20.x",
   "routes": [
     {
       "src": "/api/(.*)",
