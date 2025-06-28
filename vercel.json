@@ -8,7 +8,7 @@
       "runtime": "@vercel/node@3.0.27"
     }
   },
-  "buildCommand": "./build.sh",
+  "buildCommand": "bash build.sh",
   "routes": [
     {
       "src": "/api/(.*)",
