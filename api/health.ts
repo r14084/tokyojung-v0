@@ -1,0 +1,21 @@
+import { VercelRequest, VercelResponse } from '@vercel/node'
+import { prisma } from '../src/lib/prisma'
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    // Test database connection
+    await prisma.user.count()
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    })
+  } catch (error) {
+    console.error('Health check error:', error)
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Database connection failed',
+      timestamp: new Date().toISOString()
+    })
+  }
+}

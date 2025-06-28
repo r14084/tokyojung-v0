@@ -2,13 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["prisma/**"]
-      }
-    },
-    {
       "src": "apps/customer-pwa/package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -25,13 +18,14 @@
       }
     }
   ],
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node"
+    }
+  },
   "routes": [
     {
       "handle": "filesystem"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/src/index.ts"
     },
     {
       "src": "/staff/assets/(.*)",
@@ -46,8 +40,5 @@
       "dest": "apps/customer-pwa/dist/index.html"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "installCommand": "npm install && npx prisma generate"
 }
