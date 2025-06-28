@@ -40,13 +40,15 @@ export default async function trpcHandler(req: VercelRequest, res: VercelRespons
     const pathMatch = url.match(/\/api\/trpc\/(.+)/)
     
     if (!pathMatch) {
-      res.status(404).json({ error: 'Invalid tRPC path' })
+      res.status(404).json({ error: 'Invalid tRPC path', url })
       return
     }
     
     let path = pathMatch[1]
     // Remove query parameters from path
     path = path.split('?')[0]
+    
+    console.log('🔍 tRPC Debug:', { url, path, method: req.method })
     const ctx = createContext(req)
     
     // Handle batch requests
