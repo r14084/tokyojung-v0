@@ -9,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
-      message: '🥞 Tokyojung API Server',
+      message: '🥞 Tokyojung API Server v2',
       env: process.env.NODE_ENV || 'development',
       database: 'connected'
     })
