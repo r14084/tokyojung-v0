@@ -78,23 +78,25 @@ export default async function trpcHandler(req: VercelRequest, res: VercelRespons
     // Handle individual procedures
     const [router, procedure] = path.split('.')
     
+    const caller = appRouter.createCaller(ctx)
+    
     if (router === 'auth' && procedure === 'login' && req.method === 'POST') {
-      const result = await appRouter.auth.login({ ctx, input: req.body })
+      const result = await caller.auth.login(req.body)
       res.json({ result: { data: result } })
     } else if (router === 'auth' && procedure === 'me') {
-      const result = await appRouter.auth.me({ ctx })
+      const result = await caller.auth.me()
       res.json({ result: { data: result } })
     } else if (router === 'menu' && procedure === 'getAll') {
-      const result = await appRouter.menu.getAll({ ctx })
+      const result = await caller.menu.getAll()
       res.json({ result: { data: result } })
     } else if (router === 'orders' && procedure === 'getAll') {
-      const result = await appRouter.orders.getAll({ ctx, input: req.query })
+      const result = await caller.orders.getAll(req.query)
       res.json({ result: { data: result } })
     } else if (router === 'orders' && procedure === 'getTodayStats') {
-      const result = await appRouter.orders.getTodayStats({ ctx })
+      const result = await caller.orders.getTodayStats()
       res.json({ result: { data: result } })
     } else {
-      res.status(404).json({ error: 'Procedure not found', path })
+      res.status(404).json({ error: 'Procedure not found', path, router, procedure })
     }
   } catch (error: any) {
     console.error('tRPC handler error:', error)
