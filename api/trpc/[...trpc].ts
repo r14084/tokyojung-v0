@@ -48,7 +48,6 @@ export default async function trpcHandler(req: VercelRequest, res: VercelRespons
     // Remove query parameters from path
     path = path.split('?')[0]
     
-    console.log('🔍 tRPC Debug:', { url, path, method: req.method })
     const ctx = createContext(req)
     
     // Handle batch requests
