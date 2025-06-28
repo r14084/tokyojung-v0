@@ -20,33 +20,18 @@
   ],
   "routes": [
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/staff/assets/(.*)",
-      "dest": "apps/staff-dashboard/dist/assets/$1",
-      "headers": {
-        "cache-control": "max-age=31536000"
-      }
+      "dest": "apps/staff-dashboard/dist/assets/$1"
     },
     {
-      "src": "/staff/(.*)",
+      "src": "/staff.*",
       "dest": "apps/staff-dashboard/dist/index.html"
-    },
-    {
-      "src": "/staff",
-      "dest": "apps/staff-dashboard/dist/index.html"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "apps/customer-pwa/dist/assets/$1",
-      "headers": {
-        "cache-control": "max-age=31536000"
-      }
     },
     {
       "src": "/(.*)",
-      "dest": "apps/customer-pwa/dist/$1"
-    },
-    {
-      "src": "/",
       "dest": "apps/customer-pwa/dist/index.html"
     }
   ]

@@ -194,6 +194,34 @@ export const orderApi = {
       console.log('🍜 Order saved:', mockOrder)
       console.log('🍜 Total orders in localStorage:', existingOrders.length)
       
+      // Notify staff dashboard via postMessage
+      try {
+        window.parent.postMessage({
+          type: 'NEW_ORDER_CREATED',
+          data: mockOrder
+        }, window.location.origin)
+        
+        // Also try to notify all windows
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'NEW_ORDER_CREATED',
+            data: mockOrder
+          }, window.location.origin)
+        }
+        
+        console.log('🍜 Customer: Sent new order notification to staff dashboard')
+      } catch (error) {
+        console.log('🍜 Customer: Could not notify staff dashboard:', error)
+      }
+      
+      // Trigger storage event manually
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'tokyojung_orders',
+        newValue: JSON.stringify(existingOrders),
+        oldValue: JSON.stringify(existingOrders.slice(0, -1)),
+        url: window.location.href
+      }))
+      
       return {
         status: 'success',
         data: mockOrder
