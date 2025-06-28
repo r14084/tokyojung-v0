@@ -2,10 +2,10 @@
   "version": 2,
   "functions": {
     "api/*.ts": {
-      "runtime": "@vercel/node"
+      "runtime": "@vercel/node@3.0.27"
     },
     "api/**/*.ts": {
-      "runtime": "@vercel/node"
+      "runtime": "@vercel/node@3.0.27"
     }
   },
   "buildCommand": "cd apps/customer-pwa && npm install && npm run build && cd ../staff-dashboard && npm install && npm run build && cd ../../ && npx prisma generate"
