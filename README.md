@@ -1,4 +1,6 @@
-# Prisma Postgres Example: Queries, Connection Pooling & Caching
+# Tokyojung Restaurant API - Prisma Postgres Example
+
+> **Note**: Requires Node.js 20.x for Vercel deployment
 
 This project contains a sample application demonstrating various capabilities and workflows of [Prisma Postgres](https://prisma.io/data-platform/postgres):
 
